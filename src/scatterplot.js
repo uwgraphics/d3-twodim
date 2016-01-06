@@ -27,28 +27,21 @@ export default function() {
         
       points.enter().append('circle')
         .attr("class", "point")
-        .attr('r', 1)
-        .attr('cx', function(e) { return x1(d[0]); })
-        .attr('cy', function(e) { return y1(d[1]); });
+        .attr('r', 3)
+        .attr('cx', function(e) { return x1(e[0]); })
+        .attr('cy', function(e) { return y1(e[1]); });
         
       points.transition()
         .duration(duration)
-        .attr('cx', function(e) { return x1(d[0]); })
-        .attr('cy', function(e) { return y1(d[1]); })
+        .attr('cx', function(e) { return x1(e[0]); })
+        .attr('cy', function(e) { return y1(e[1]); })
         .style('opacity', 1);
         
       points.exit().transition()
         .duration(duration)
         .style('opacity', 1e-6)
-        .remove();
-        
-        
-        
-      
+        .remove();      
     });
-    
-    
-    
   }
   
   scatterplot.width = function(val) {
@@ -62,4 +55,6 @@ export default function() {
     height = val;
     return scatterplot;
   }
+  
+  return scatterplot;
 };

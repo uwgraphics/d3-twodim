@@ -1,5 +1,6 @@
 *.sublime-workspace
 .DS_Store
+.vscode
 build/
 node_modules
 npm-debug.log

@@ -1,10 +1,10 @@
-# d3-foo
+# d3-twodim
 
-Creates an scatterplot with given 2D data.
+Helps create two-dimensional representations of data using scatter plots, Splatterplots and subsampled scatterplots, given 2D data.
 
 ## Installing
 
-If you use NPM, `npm install d3-scatterplot`. Otherwise, download the [latest release](https://github.com/yelper/d3-scatterplot/releases/latest).
+If you use NPM, `npm install d3-twodim`. Otherwise, download the [latest release](https://github.com/uwgraphics/d3-twodim/releases/latest).
 
 ## API Reference
 

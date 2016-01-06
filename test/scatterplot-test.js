@@ -1,7 +1,8 @@
 var tape = require("tape"),
     scatterplot = require("../");
 
-// tape("foo() returns the answer to the ultimate question of life, the universe, and everything.", function(test) {
-//   test.equal(foo.foo(), 42);
-//   test.end();
-// });
+tape("Scatterplot has the expected defaults", function(test) {
+  var s = scatterplot.scatterplot();
+  test.equal(s.width(), 1);
+  test.end();
+});

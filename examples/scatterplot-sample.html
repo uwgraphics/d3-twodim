@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>/r/nba Survey on Online Community</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    
+    <style type="text/css">
+        circle.point {
+            fill: steelblue;
+        }
+    </style>
+</head>
+<body>
+    <script type="text/javascript" src="//d3js.org/d3.v3.min.js"></script>
+    <script type="text/javascript" src="../build/d3-twodim.js"></script>
+    <script type="text/javascript">
+        
+    var width = 400; 
+    var height = 400;
+    
+    var scatterplot = d3_twodim.scatterplot()
+        .width(width)
+        .height(height);
+        
+    var vis = d3.select('body').append('svg')    
+        .attr('width', 800)
+        .attr('height', 800);
+        
+    d3.csv("venn2-small.csv", function(d) { return [+d[0], +d[1]]; }, function(error, rows) {
+        rows = [rows, rows];
+        var plot = vis.selectAll('g.plots')
+            .data(rows).enter().append('g')
+                .attr('class', 'plots')
+                .attr('transform', function(d, i) { return "translate(" + (i * 400) + ", 0)"; });
+                
+        plot.call(scatterplot);
+    });
+        
+    </script>
+</body>
+</html>
