@@ -9,6 +9,16 @@
         circle.point {
             fill: steelblue;
         }
+        
+        .axis text {
+            font: 10px sans-serif;
+        }
+            
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: #000;
+        }
     </style>
 </head>
 <body>
@@ -32,7 +42,7 @@
         var plot = vis.selectAll('g.plots')
             .data(rows).enter().append('g')
                 .attr('class', 'plots')
-                .attr('transform', function(d, i) { return "translate(" + (i * 400) + ", 0)"; });
+                .attr('transform', function(d, i) { return "translate(" + (30 + i * 430) + ", 0)"; });
                 
         plot.call(scatterplot);
     });
