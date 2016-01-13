@@ -6,8 +6,10 @@ export default function() {
   var height = 1;
   var xValue = function(d) { return +d[0]; };
   var yValue = function(d) { return +d[1]; };
+  var grpValue = null;
   
   var ptSize = 3;
+  var colorScale = null;
   var ptIdentifier = function(d, i) { return i; };
   
   var duration = 200;
@@ -17,6 +19,11 @@ export default function() {
       var g = d3.select(this);
       var xd = [d3.min(data, function(e) { return xValue(e); }), d3.max(data, function(e) { return xValue(e); })];
       var yd = [d3.min(data, function(e) { return yValue(e); }), d3.max(data, function(e) { return yValue(e); })];
+      
+      var grps = grpValue == null ? ["0"] : d3.set(data.map(function(e) { return grpValue(e); })).values();
+      colorScale = colorScale || d3.scale.category10();
+      colorScale.domain(grps);
+      console.log("found %d groups", grps.length);
       
       var x1 = d3.scale.linear()
         .domain(xd)
@@ -38,35 +45,8 @@ export default function() {
         y0 = d3.scale.linear().domain([0, Infinity]).range(y1.range());
       }
       this.__chart__ = {x: x1, y: y1};
-        
-      var points = g.selectAll('circle.point')
-        .data(data, ptIdentifier);
-        
-      points.enter().append('circle')
-        .attr("class", "point")
-        .attr('r', ptSize)
-        .attr('cx', function(d) { return x0(xValue(d)); })
-        .attr('cy', function(d) { return y0(yValue(d)); })
-        .style('opacity', 1e-6)
-      .transition()
-        .duration(duration)
-        .attr('cx', function(e) { return x1(xValue(e)); })
-        .attr('cy', function(e) { return y1(yValue(e)); })
-        .style('opacity', 1);
-        
-      points.transition()
-        .duration(duration)
-        .attr('cx', function(e) { return x1(xValue(e)); })
-        .attr('cy', function(e) { return y1(yValue(e)); })
-        .style('opacity', 1);
-        
-      points.exit().transition()
-        .duration(duration)
-        .attr('cx', function(e) { return x1(xValue(e)); })
-        .attr('cy', function(e) { return y1(yValue(e)); })
-        .style('opacity', 1e-6)
-        .remove();
-        
+      
+      // draw axes first so points can go over the axes
       var xaxis = g.selectAll('g.xaxis')
         .data(xd);
       
@@ -95,7 +75,38 @@ export default function() {
       yaxis.transition()
         .duration(duration)
         .call(d3.svg.axis().orient("left").scale(y1));
-            
+        
+      var points = g.selectAll('circle.point')
+        .data(data, ptIdentifier);
+        
+      points.enter().append('circle')
+        .attr("class", "point")
+        .attr('r', ptSize)
+        .attr('cx', function(d) { return x0(xValue(d)); })
+        .attr('cy', function(d) { return y0(yValue(d)); })
+        .style('fill', function(d) { return colorScale(grpValue(d)); })
+        .style('opacity', 1e-6)
+      .transition()
+        .duration(duration)
+        .attr('cx', function(e) { return x1(xValue(e)); })
+        .attr('cy', function(e) { return y1(yValue(e)); })
+        .style('fill', function(d) { return colorScale(grpValue(d)); })
+        .style('opacity', 1);
+        
+      points.transition()
+        .duration(duration)
+        .attr('cx', function(e) { return x1(xValue(e)); })
+        .attr('cy', function(e) { return y1(yValue(e)); })
+        .style('fill', function(d) { return colorScale(grpValue(d)); })
+        .style('opacity', 1);
+        
+      points.exit().transition()
+        .duration(duration)
+        .attr('cx', function(e) { return x1(xValue(e)); })
+        .attr('cy', function(e) { return y1(yValue(e)); })
+        .style('fill', function(d) { return colorScale(grpValue(d)); })
+        .style('opacity', 1e-6)
+        .remove();            
     });
   }
   
@@ -162,6 +173,28 @@ export default function() {
   scatterplot.pointIdentifier = function(newIDFunc) {
     if (!arguments.length) return ptIdentifier;
     ptIdentifier = newIDFunc;
+    return scatterplot;
+  }
+  
+  /**
+   * The function to select the grouping value from the datapoint
+   * @default No function, meaning that all points are considered to be from the same series
+   * @param {function(): string} [grpVal] - The function that returns the group identifier for a given point
+   */
+  scatterplot.groupColumn = function(grpVal) {
+    if (!arguments.length) return grpVal;
+    grpValue = grpVal;
+    return scatterplot;
+  }
+  
+  /**
+   * The color scale to map to the grouping column. The domain of the colorscale will be set at draw time from the current data.
+   * @default Uses the `d3.scale.category10() color scale.
+   * @param {d3.scale.ordinal(): string} [newScale] - The new `d3.scale.ordinal()` scale to use.
+   */
+  scatterplot.colorScale = function(newScale) {
+    if (!arguments.length) return colorScale;
+    colorScale = newScale;
     return scatterplot;
   }
   

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>/r/nba Survey on Online Community</title>
+    <title>Example of d3_twodim.scatterplot()</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     
@@ -31,13 +31,14 @@
     
     var scatterplot = d3_twodim.scatterplot()
         .width(width)
-        .height(height);
+        .height(height)
+        .groupColumn(function(d) { return d[2]; });
         
     var vis = d3.select('body').append('svg')    
         .attr('width', 800)
         .attr('height', 800);
         
-    d3.csv("venn2-small.csv", function(d) { return [+d[0], +d[1]]; }, function(error, rows) {
+    d3.csv("venn2-small.csv", function(d) { return [+d[0], +d[1], d['G']]; }, function(error, rows) {
         rows = [rows, rows];
         var plot = vis.selectAll('g.plots')
             .data(rows).enter().append('g')
