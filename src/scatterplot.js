@@ -12,6 +12,8 @@ export default function() {
   var colorScale = null;
   var ptIdentifier = function(d, i) { return i; };
   
+  var doBrush = false;
+  
   var duration = 200;
   
   function scatterplot(selection) {
@@ -32,6 +34,15 @@ export default function() {
       var y1 = d3.scale.linear()
         .domain(yd)
         .range([0, height]);
+      
+      var brush;        
+      if (doBrush) {
+        brush = d3.svg.brush()
+          .x(x1)
+          .y(y1)
+          .on("brush", brushmove)
+          .on("brushend", brushend);
+      }
       
       // retireve/stash scales to make for seamless updating;
       // with thanks to the qq plugin for making this cute: 
@@ -106,7 +117,29 @@ export default function() {
         .attr('cy', function(e) { return y1(yValue(e)); })
         .style('fill', function(d) { return colorScale(grpValue(d)); })
         .style('opacity', 1e-6)
-        .remove();            
+        .remove();;
+        
+      if (doBrush)
+        g.call(brush);
+      else {
+        // remove all instances of the brush (if it exists)
+        g.selectAll('.hidden').classed('hidden', false);
+        g.selectAll(".background, .extent, .resize").remove();
+        g.on("mousedown.brush", null);
+        g.on("touchstart.brush", null);
+      }
+        
+      function brushmove(p) {
+        var e = brush.extent();
+        g.selectAll("circle").classed("hidden", function(d) {
+          return e[0][0] > xValue(d) || xValue(d) > e[1][0] || e[0][1] > yValue(d) || yValue(d) > e[1][1];  
+        });
+      }
+      
+      function brushend() {
+        if (brush.empty()) 
+          g.selectAll('.hidden').classed('hidden', false);
+      }
     });
   }
   
@@ -195,6 +228,18 @@ export default function() {
   scatterplot.colorScale = function(newScale) {
     if (!arguments.length) return colorScale;
     colorScale = newScale;
+    return scatterplot;
+  }
+  
+  /**
+   * Tells the scatterplot to support a D3 brush component.  
+   * Points not selected by the brush will have the `.hidden` CSS class selector added.
+   * @default false (no brush will be added to the scatterplot)
+   * @param {boolean} [newBrush] Whether or not to add a brush to the scatterplot.
+   */
+  scatterplot.doBrush = function(newBrush) {
+    if (!arguments.length) return doBrush;
+    doBrush = newBrush;
     return scatterplot;
   }
   

@@ -19,9 +19,20 @@
             fill: none;
             stroke: #000;
         }
+        
+        .hidden {
+            fill-opacity: 0.7;
+        }
+        
+        .extent {
+            fill: #000;
+            fill-opacity: 0.125;
+            stroke: #ddd;
+        }
     </style>
 </head>
 <body>
+    <a href="#" id="removeBrush">Add/Remove Brush</a>
     <script type="text/javascript" src="//d3js.org/d3.v3.min.js"></script>
     <script type="text/javascript" src="../build/d3-twodim.js"></script>
     <script type="text/javascript">
@@ -32,6 +43,7 @@
     var scatterplot = d3_twodim.scatterplot()
         .width(width)
         .height(height)
+        .doBrush(true)
         .groupColumn(function(d) { return d[2]; });
         
     var vis = d3.select('body').append('svg')    
@@ -46,6 +58,12 @@
                 .attr('transform', function(d, i) { return "translate(" + (30 + i * 430) + ", 0)"; });
                 
         plot.call(scatterplot);
+    });
+    
+    document.getElementById("removeBrush").addEventListener("click", function() {
+       scatterplot.doBrush(!scatterplot.doBrush());
+       vis.selectAll("g.plots")
+        .call(scatterplot); 
     });
         
     </script>
