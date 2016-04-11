@@ -16,8 +16,9 @@
             
         .axis path,
         .axis line {
-            fill: none;
-            stroke: #000;
+          fill: none;
+          stroke: #000;
+          shape-rendering: crispEdges;
         }
         
         .hidden {
@@ -37,8 +38,8 @@
     <script type="text/javascript" src="../build/d3-twodim.js"></script>
     <script type="text/javascript">
         
-    var width = 400; 
-    var height = 400;
+    var width = 290; 
+    var height = 250;
     
     var scatterplot = d3_twodim.scatterplot()
         .width(width)
@@ -55,7 +56,7 @@
         var plot = vis.selectAll('g.plots')
             .data(rows).enter().append('g')
                 .attr('class', 'plots')
-                .attr('transform', function(d, i) { return "translate(" + (30 + i * 430) + ", 0)"; });
+                .attr('transform', function(d, i) { return "translate(" + (30 + i * 430) + ", 10)"; });
                 
         plot.call(scatterplot);
     });

@@ -21,7 +21,7 @@ export default function() {
       var g = d3.select(this);
       var xd = [d3.min(data, function(e) { return xValue(e); }), d3.max(data, function(e) { return xValue(e); })];
       var yd = [d3.min(data, function(e) { return yValue(e); }), d3.max(data, function(e) { return yValue(e); })];
-      
+            
       var grps = grpValue == null ? ["0"] : d3.set(data.map(function(e) { return grpValue(e); })).values();
       colorScale = colorScale || d3.scale.category10();
       colorScale.domain(grps);
@@ -33,7 +33,7 @@ export default function() {
         
       var y1 = d3.scale.linear()
         .domain(yd)
-        .range([0, height]);
+        .range([height, 0]);
       
       var brush;        
       if (doBrush) {
