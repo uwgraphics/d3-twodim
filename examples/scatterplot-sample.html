@@ -33,7 +33,13 @@
     </style>
 </head>
 <body>
-    <a href="#" id="removeBrush">Add/Remove Brush</a>
+    <svg id="d3canvas" version="1.1" baseProfile="full" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="dataPoints">
+        <ul>
+        </ul>
+    </div>
+    <br />
+    <a href="#" id="removeBrush">Add/Remove Brush</a> | <a href="#" id="switchAxes">Switch axes</a>
     <script type="text/javascript" src="//d3js.org/d3.v3.min.js"></script>
     <script type="text/javascript" src="../build/d3-twodim.js"></script>
     <script type="text/javascript">
@@ -47,9 +53,9 @@
         .doBrush(true)
         .groupColumn(function(d) { return d[2]; });
         
-    var vis = d3.select('body').append('svg')    
+    var vis = d3.select('#d3canvas')    
         .attr('width', 800)
-        .attr('height', 800);
+        .attr('height', 300);
         
     d3.csv("venn2-small.csv", function(d) { return [+d[0], +d[1], d['G']]; }, function(error, rows) {
         rows = [rows, rows];
@@ -65,6 +71,13 @@
        scatterplot.doBrush(!scatterplot.doBrush());
        vis.selectAll("g.plots")
         .call(scatterplot); 
+    });
+    
+    document.getElementById("switchAxes").addEventListener("click", function() {
+        var tmp = scatterplot.x(); 
+        scatterplot.x(scatterplot.y());
+        scatterplot.y(tmp);
+        vis.selectAll('g.plots').call(scatterplot); 
     });
         
     </script>

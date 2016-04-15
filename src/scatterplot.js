@@ -1,5 +1,3 @@
-/// <reference path="../typings/d3/d3.d.ts" />
-
 export default function() {
   // 'global' declarations go here
   var width = 1;
@@ -14,7 +12,7 @@ export default function() {
   
   var doBrush = false;
   
-  var duration = 200;
+  var duration = 500;
   
   function scatterplot(selection) {
     selection.each(function(data, i) {
@@ -117,7 +115,7 @@ export default function() {
         .attr('cy', function(e) { return y1(yValue(e)); })
         .style('fill', function(d) { return colorScale(grpValue(d)); })
         .style('opacity', 1e-6)
-        .remove();;
+        .remove();
         
       if (doBrush)
         g.call(brush);
@@ -196,6 +194,17 @@ export default function() {
     if (!arguments.length) return ptSize;
     ptSize = newSize;
     return scatterplot; 
+  }
+  
+  /**
+   * Gets or sets the duration of animated transitions (in milliseconds) when updating the scatterplot bounds, axes, or point locations
+   * @default Transitions have a duration of 500ms
+   * @param {number} [newDuration] - The new duration of all animated transitions.
+   */
+  scatterplot.changeDuration = function(newDuration) {
+    if (!arguments.length) return duration;
+    duration = newDuration;
+    return scatterplot;
   }
   
   /**
