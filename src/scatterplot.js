@@ -1,5 +1,9 @@
-export default function() {
+export default function(dispatch) {
   // 'global' declarations go here
+  var scatterData = [];
+  var scatterDataKey = undefined;
+  var dirty = true;
+  
   var width = 1;
   var height = 1;
   var xValue = function(d) { return +d[0]; };
@@ -14,7 +18,7 @@ export default function() {
   
   var duration = 500;
   
-  function scatterplot(selection) {
+  function redraw(selection) {
     selection.each(function(data, i) {
       var g = d3.select(this);
       var xd = [d3.min(data, function(e) { return xValue(e); }), d3.max(data, function(e) { return xValue(e); })];
@@ -69,6 +73,7 @@ export default function() {
       // update axis if x-bounds changed
       xaxis.transition()
         .duration(duration)
+        .attr('transform', 'translate(0, ' + height + ')')
         .call(d3.svg.axis().orient("bottom").scale(x1));
         
       var yaxis = g.selectAll('g.yaxis')
@@ -129,17 +134,61 @@ export default function() {
         
       function brushmove(p) {
         var e = brush.extent();
-        g.selectAll("circle").classed("hidden", function(d) {
-          return e[0][0] > xValue(d) || xValue(d) > e[1][0] || e[0][1] > yValue(d) || yValue(d) > e[1][1];  
+        var indices = [];
+        
+        g.selectAll("circle").classed("hidden", function(d, i) {
+          if (e[0][0] > xValue(d) || xValue(d) > e[1][0] || e[0][1] > yValue(d) || yValue(d) > e[1][1])
+            return true;
+            
+          indices.push(i);
+          return false; 
         });
+        
+        dispatch.redraw(indices)
       }
       
       function brushend() {
-        if (brush.empty()) 
+        if (brush.empty()) {
           g.selectAll('.hidden').classed('hidden', false);
+          dispatch.redraw([]);
+        }
       }
     });
+  };
+  
+  function scatterplot(selection) {
+    if (dirty) {
+      selection.each(function(d, i) {
+        var g = d3.select(this);
+        g.data([scatterData], scatterDataKey);
+      });
+      //dirty = false;
+    }
+    
+    redraw(selection);
+    
+    dispatch.on('redraw.' + selection, function(dataIndices) {
+      console.log("scatterplot dispatch called!");
+      redraw(selection);
+    });
   }
+  
+  /**
+   * Gets or sets the data bound to points in the scatterplot.  Following D3.js convention, this should be an array of anonymous objects
+   * @default Empty array: []
+   * @param {Object[]} The data of the scatterplot.  Set the `.x()` and `.y()` accessors for the x- and y-dimensions of the scatterplot
+   * @param {function(Object[]): string} The key function for the data (similar to the key function in `d3.data([data, [key]])`)
+   */
+  scatterplot.data = function(newData, key) {
+    if (!arguments.length) return scatterData;
+    scatterData = newData;
+    dirty = true;
+    
+    if (key)
+      scatterDataKey = key;
+    
+    return scatterplot;
+  };
   
   /**
    * The width of the constructed scatterplot.  The caller is responsible for maintaining sensible margins.
@@ -175,7 +224,7 @@ export default function() {
   }
   
   /**
-   *  The function to select the y-value from the datapoint
+   * The function to select the y-value from the datapoint
    * @default Function select the second value in the datum (e.g. d[1])
    * @param {function(): number} [yVal] - The function that returns the y-axis value for a given point
    */

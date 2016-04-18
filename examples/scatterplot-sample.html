@@ -34,12 +34,10 @@
 </head>
 <body>
     <svg id="d3canvas" version="1.1" baseProfile="full" xmlns="http://www.w3.org/2000/svg"></svg>
-    <div id="dataPoints">
-        <ul>
-        </ul>
-    </div>
+    <div id="dataPoints"></div>
     <br />
-    <a href="#" id="removeBrush">Add/Remove Brush</a> | <a href="#" id="switchAxes">Switch axes</a>
+    <a href="#" id="removeBrush">Add/Remove Brush</a> | <a href="#" id="switchAxes">Switch axes</a><br />
+    <svg id="d3canvas2" version="1.1" baseProfile="full" xmlns="http://www.w3.org/2000/svg" style="margin-top: 100px;"></svg>
     <script type="text/javascript" src="//d3js.org/d3.v3.min.js"></script>
     <script type="text/javascript" src="../build/d3-twodim.js"></script>
     <script type="text/javascript">
@@ -47,7 +45,9 @@
     var width = 290; 
     var height = 250;
     
-    var scatterplot = d3_twodim.scatterplot()
+    var dispatch = d3.dispatch("redraw");
+    var objectlist = d3_twodim.objectlist(dispatch);
+    var scatterplot = d3_twodim.scatterplot(dispatch)
         .width(width)
         .height(height)
         .doBrush(true)
@@ -58,13 +58,34 @@
         .attr('height', 300);
         
     d3.csv("venn2-small.csv", function(d) { return [+d[0], +d[1], d['G']]; }, function(error, rows) {
-        rows = [rows, rows];
+        // rows = [rows, rows];
+        // var plot = vis.selectAll('g.plots')
+        //     .data(rows).enter().append('g')
+        //         .attr('class', 'plots')
+        //         .attr('transform', function(d, i) { return "translate(" + (30 + i * 430) + ", 10)"; });
+        
+        scatterplot.data(rows);
+        objectlist.data(rows);
+        
+        var plots = [1, 2];
         var plot = vis.selectAll('g.plots')
-            .data(rows).enter().append('g')
+            .data(plots).enter()
+            .append('g')
                 .attr('class', 'plots')
-                .attr('transform', function(d, i) { return "translate(" + (30 + i * 430) + ", 10)"; });
+                .attr('transform', function(d, i) { return "translate(" + (30 + i * 430) + ", 10)"; })
+                .call(scatterplot);
                 
-        plot.call(scatterplot);
+        var singlePlot = d3.select("#d3canvas2")
+            .attr('width', 800)
+            .attr('height', 300)
+          .append('g')
+            .attr('class', 'singleplot')
+            .attr('transform', "translate(30, 10)")
+            .call(scatterplot);
+
+        var list = d3.select("#dataPoints").call(objectlist);
+                
+        //plot.call(scatterplot);
     });
     
     document.getElementById("removeBrush").addEventListener("click", function() {
