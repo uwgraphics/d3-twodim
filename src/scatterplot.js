@@ -2,7 +2,6 @@ export default function(dispatch) {
   // 'global' declarations go here
   var scatterData = [];
   var scatterDataKey = undefined;
-  var dirty = true;
   
   var width = 1;
   var height = 1;
@@ -37,14 +36,11 @@ export default function(dispatch) {
         .domain(yd)
         .range([height, 0]);
       
-      var brush;        
-      if (doBrush) {
-        brush = d3.svg.brush()
-          .x(x1)
-          .y(y1)
-          .on("brush", brushmove)
-          .on("brushend", brushend);
-      }
+      var brush = d3.svg.brush()
+        .x(x1)
+        .y(y1)
+        .on("brush", brushmove)
+        .on("brushend", brushend);
       
       // retireve/stash scales to make for seamless updating;
       // with thanks to the qq plugin for making this cute: 
@@ -89,8 +85,14 @@ export default function(dispatch) {
       yaxis.transition()
         .duration(duration)
         .call(d3.svg.axis().orient("left").scale(y1));
-        
-      var points = g.selectAll('circle.point')
+      
+      // create a group for the circles if it doesn't yet exist  
+      g.selectAll('g.circles')
+        .data([1]).enter().append('g')
+          .attr('class', 'circles');
+          
+      // bind points to circles
+      var points = g.select('g.circles').selectAll('circle.point')
         .data(data, ptIdentifier);
         
       points.enter().append('circle')
@@ -122,15 +124,22 @@ export default function(dispatch) {
         .style('opacity', 1e-6)
         .remove();
         
-      if (doBrush)
-        g.call(brush);
-      else {
-        // remove all instances of the brush (if it exists)
-        g.selectAll('.hidden').classed('hidden', false);
-        g.selectAll(".background, .extent, .resize").remove();
-        g.on("mousedown.brush", null);
-        g.on("touchstart.brush", null);
-      }
+      // create the brush group if it doesn't exist and is requested by `doBrush`
+      var brushGroup = g.selectAll('g.brush')
+        .data(doBrush ? [0] : []);
+
+      // create the brush if it should exist        
+      brushGroup.enter().append('g')
+          .attr('class', 'brush')
+          .call(brush);
+
+      // if the brush is to be removed, force no selected indices          
+      brushGroup.exit()
+        .each(function() { 
+          dispatch.redraw([]);
+          g.selectAll('circle.hidden').classed('hidden', false); 
+        })
+        .remove();
         
       function brushmove(p) {
         var e = brush.extent();
@@ -157,13 +166,10 @@ export default function(dispatch) {
   };
   
   function scatterplot(selection) {
-    if (dirty) {
-      selection.each(function(d, i) {
-        var g = d3.select(this);
-        g.data([scatterData], scatterDataKey);
-      });
-      //dirty = false;
-    }
+    selection.each(function(d, i) {
+      var g = d3.select(this);
+      g.data([scatterData], scatterDataKey);
+    });
     
     redraw(selection);
     
@@ -182,7 +188,6 @@ export default function(dispatch) {
   scatterplot.data = function(newData, key) {
     if (!arguments.length) return scatterData;
     scatterData = newData;
-    dirty = true;
     
     if (key)
       scatterDataKey = key;
