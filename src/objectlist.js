@@ -3,6 +3,20 @@ export default function(dispatch) {
   var thisDataKey = undefined;
   
   var filterFunc = function(d) { return false; };
+  var ptString = function(d) { 
+    if (Array.isArray(d)) {
+      return d.join(", ");
+    } else {
+      var retStr = "";
+      for (prop in d) {
+        if (d.hasOwnProperty(prop)) {
+          retStr += "prop: " + d[prop];
+        }
+      }
+      
+      return prop;
+    }
+  };
   
   function redraw(selection) {
     selection.each(function(data, i) {
@@ -14,7 +28,7 @@ export default function(dispatch) {
       objects.enter().append('li')
         .attr('class', 'list-group-item');
         
-      objects.html(function(d) { return "Point: " + d; });
+      objects.html(function(d) { return "Point: " + ptString(d); });
         
       objects.exit().remove();
     })
@@ -72,7 +86,17 @@ export default function(dispatch) {
     filterFunc = newFilterFunc;
     return objectlist;
   }
-
+  
+  /**
+   * Gets or sets the function that transforms points into a string representation.
+   * @default Lists out the items in the point, sequentially
+   * @param {function((Object|Array)): string} The ptString function that provides a string representation of a given object
+   */
+  objectlist.pointToString = function(newPtString) {
+    if (!arguments.length) return ptString;
+    ptString = newPtString;
+    return objectlist;
+  }
 
   return objectlist;
 }

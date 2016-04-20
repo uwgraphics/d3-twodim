@@ -175,6 +175,15 @@ export default function(dispatch) {
     
     dispatch.on('redraw.' + selection, function(dataIndices) {
       console.log("scatterplot dispatch called!");
+      
+      if (dataIndices.length == 0) {
+        selection.selectAll("circle").classed('hidden', false);
+      } else {
+        selection.selectAll("circle").classed("hidden", function(d, i) {
+          return dataIndices.indexOf(i) == -1;
+        });
+      }
+      
       redraw(selection);
     });
   }
