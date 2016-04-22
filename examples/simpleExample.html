@@ -35,24 +35,33 @@
 <body>
     <svg id="d3canvas" version="1.1" baseProfile="full" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="dataPoints"></div>
-    <script type="text/javascript" src="//d3js.org/d3.v3.min.js"></script>
+    <script type="text/javascript" src="//d3js.org/d3.v3.js"></script>
     <script type="text/javascript" src="../build/d3-twodim.js"></script>
     <script type="text/javascript">    
     
     var twoDFactory = new d3_twodim.twoDimFactory();
-    var objectlist = twoDFactory.createComponent({type: 'objectlist'});
+    var objectlist = twoDFactory.createComponent({type: 'objectlist'})
+        .pointToString(function(d) {
+             return d['author'] + ": " + d['title'] + " (" + d['genre'] + ")"; 
+        });
     var scatterplot = twoDFactory.createComponent({type: 'scatterplot'})
         .width(290)
         .height(250)
         .doBrush(true)
-        .groupColumn(function(d) { return d[2]; });
+        .x(function(d) { return d['Anger']; })
+        .y(function(d) { return d['Reassure']; })
+        .groupColumn(function(d) { return d['genre']; });
         
     var test = twoDFactory.createComponent({type: 'scatterplot'})
         .width(400)
         .height(250)
-        .groupColumn(function(d) { return d[2]; });
+        .doBrush(true)
+        .x(function(d) { return d['Positivity']; })
+        .y(function(d) { return d['Negativity']; })
+        .groupColumn(function(d) { return d['genre']; });
         
-    d3.csv("venn2-small.csv", function(d) { return [+d[0], +d[1], d['G']]; }, function(error, rows) {
+    //d3.csv("venn2-small.csv", function(d) { return [+d[0], +d[1], d['G']]; }, function(error, rows) {
+    d3.csv("plays1554.csv", function(error, rows) {
         twoDFactory.setData(rows);
         
         var singlePlot = d3.select("#d3canvas")
@@ -61,13 +70,13 @@
           .append('g')
             .attr('class', 'singleplot')
             .attr('transform', "translate(30, 10)")
-            .call(scatterplot);
+            .call(scatterplot, ".singleplot");
             
         d3.select("#d3canvas")
           .append('g')
-            .attr('class', 'singleplot')
+            .attr('class', 'singleplot2')
             .attr('transform', 'translate(350, 10)')
-            .call(test);
+            .call(test, ".singleplot2");
 
         var list = d3.select("#dataPoints").call(objectlist);
     });

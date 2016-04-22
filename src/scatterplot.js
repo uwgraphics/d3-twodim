@@ -7,7 +7,9 @@ export default function(dispatch) {
   var height = 1;
   var xValue = function(d) { return +d[0]; };
   var yValue = function(d) { return +d[1]; };
+  
   var grpValue = null;
+  var foundGroups = ["undefined"];
   
   var ptSize = 3;
   var colorScale = null;
@@ -24,10 +26,10 @@ export default function(dispatch) {
       var xd = [d3.min(data, function(e) { return xValue(e); }), d3.max(data, function(e) { return xValue(e); })];
       var yd = [d3.min(data, function(e) { return yValue(e); }), d3.max(data, function(e) { return yValue(e); })];
             
-      var grps = grpValue == null ? ["0"] : d3.set(data.map(function(e) { return grpValue(e); })).values();
+      foundGroups = grpValue == null ? ["undefined"] : d3.set(data.map(function(e) { return grpValue(e); })).values();
       colorScale = colorScale || d3.scale.category10();
-      colorScale.domain(grps);
-      console.log("found %d groups", grps.length);
+      colorScale.domain(foundGroups);
+      console.log("found %d groups", foundGroups.length);
       
       var x1 = d3.scale.linear()
         .domain(xd)
@@ -171,7 +173,7 @@ export default function(dispatch) {
     });
   };
   
-  function scatterplot(selection) {
+  function scatterplot(selection, name) {
     selection.each(function(d, i) {
       var g = d3.select(this);
       g.data([scatterData], scatterDataKey);
@@ -179,8 +181,13 @@ export default function(dispatch) {
     
     redraw(selection);
     
-    dispatch.on('redraw.' + selection, function(dataIndices) {
-      console.log("scatterplot dispatch called!");
+    dispatch.on('redraw.' + name, function(dataIndices) {
+      console.log("scatterplot dispatch called for " + name + "!");
+      
+      // TODO: try to sort to put highlighted circles in front
+      // selection.selectAll("circle").sort(function(a,b) {
+      //   return dataIndices.indexOf()
+      // });
       
       if (dataIndices.length == 0) {
         selection.selectAll("circle").classed('hidden', false);
@@ -190,7 +197,10 @@ export default function(dispatch) {
         });
       }
       
-      redraw(selection);
+      // this lags the webpage too much... why?
+      // ^^ because it contains transitions that don't actually transition! 
+      // d3.timer goes nuts trying to schedule nothing
+      // redraw(selection);
     });
   }
   
