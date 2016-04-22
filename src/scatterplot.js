@@ -18,6 +18,7 @@ export default function(dispatch) {
   var duration = 500;
   
   function redraw(selection) {
+    console.log("called scatterplot.redraw()");
     selection.each(function(data, i) {
       var g = d3.select(this);
       var xd = [d3.min(data, function(e) { return xValue(e); }), d3.max(data, function(e) { return xValue(e); })];
@@ -133,13 +134,18 @@ export default function(dispatch) {
           .attr('class', 'brush')
           .call(brush);
 
-      // if the brush is to be removed, force no selected indices          
+      // if the brush is to be removed, force no selected indices
+      var brushDirty = false;          
       brushGroup.exit()
         .each(function() { 
-          dispatch.redraw([]);
+          brushDirty = true;
           g.selectAll('circle.hidden').classed('hidden', false); 
         })
         .remove();
+        
+      // hack to clear selected points post-hoc after removing brush element 
+      // (to get around inifinite-loop problem if called from within the exit() selection)
+      if (brushDirty) dispatch.redraw([]);
         
       function brushmove(p) {
         var e = brush.extent();
