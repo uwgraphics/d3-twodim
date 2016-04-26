@@ -13,6 +13,10 @@
         .axis text {
             font: 10px sans-serif;
         }
+        
+        .axis text.alabel {
+            font-size: 12px;
+        }
             
         .axis path,
         .axis line {
@@ -51,19 +55,15 @@
         .width(width)
         .height(height)
         .doBrush(true)
+        .xLabel("xAxis")
+        .yLabel("yAxis")
         .groupColumn(function(d) { return d[2]; });
         
     var vis = d3.select('#d3canvas')    
         .attr('width', 800)
         .attr('height', 300);
         
-    d3.csv("venn2-small.csv", function(d) { return [+d[0], +d[1], d['G']]; }, function(error, rows) {
-        // rows = [rows, rows];
-        // var plot = vis.selectAll('g.plots')
-        //     .data(rows).enter().append('g')
-        //         .attr('class', 'plots')
-        //         .attr('transform', function(d, i) { return "translate(" + (30 + i * 430) + ", 10)"; });
-        
+    d3.csv("venn2-small.csv", function(d) { return [+d[0], +d[1], d['G']]; }, function(error, rows) {        
         scatterplot.data(rows);
         objectlist.data(rows);
         
@@ -72,7 +72,7 @@
             .data(plots).enter()
             .append('g')
                 .attr('class', 'plots')
-                .attr('transform', function(d, i) { return "translate(" + (30 + i * 430) + ", 10)"; })
+                .attr('transform', function(d, i) { return "translate(" + (50 + i * 430) + ", 10)"; })
                 .call(scatterplot);
                 
         var singlePlot = d3.select("#d3canvas2")
@@ -80,7 +80,7 @@
             .attr('height', 300)
           .append('g')
             .attr('class', 'singleplot')
-            .attr('transform', "translate(30, 10)")
+            .attr('transform', "translate(50, 10)")
             .call(scatterplot);
 
         var list = d3.select("#dataPoints").call(objectlist);

@@ -7,6 +7,7 @@ export default function(dispatch) {
   var height = 1;
   var xValue = function(d) { return +d[0]; };
   var yValue = function(d) { return +d[1]; };
+  var name = ["", ""];
   
   var grpValue = null;
   var foundGroups = ["undefined"];
@@ -23,8 +24,8 @@ export default function(dispatch) {
     console.log("called scatterplot.redraw()");
     selection.each(function(data, i) {
       var g = d3.select(this);
-      var xd = [d3.min(data, function(e) { return xValue(e); }), d3.max(data, function(e) { return xValue(e); })];
-      var yd = [d3.min(data, function(e) { return yValue(e); }), d3.max(data, function(e) { return yValue(e); })];
+      var xd = d3.extent(data, function(e) { return xValue(e); });
+      var yd = d3.extent(data, function(e) { return yValue(e); });
             
       foundGroups = grpValue == null ? ["undefined"] : d3.set(data.map(function(e) { return grpValue(e); })).values();
       colorScale = colorScale || d3.scale.category10();
@@ -60,7 +61,7 @@ export default function(dispatch) {
       
       // draw axes first so points can go over the axes
       var xaxis = g.selectAll('g.xaxis')
-        .data(xd);
+        .data([xd]);
       
       // add axis if it doesn't exist  
       xaxis.enter()
@@ -75,8 +76,19 @@ export default function(dispatch) {
         .attr('transform', 'translate(0, ' + height + ')')
         .call(d3.svg.axis().orient("bottom").scale(x1));
         
+      var xLabel = xaxis.selectAll('text.alabel')
+        .data([name[0]]);
+        
+      xLabel.enter().append('text')
+        .attr('class', 'alabel')
+        .attr('transform', 'translate(' + (width / 2) + ',20)')
+        .attr('dy', '1em')
+        .style('text-anchor', 'middle');
+      xLabel.text(function(d) { return d; });
+      xLabel.exit().remove();
+        
       var yaxis = g.selectAll('g.yaxis')
-        .data(yd);
+        .data([yd]);
         
       // add axis if it doesn't exist
       yaxis.enter()
@@ -88,6 +100,19 @@ export default function(dispatch) {
       yaxis.transition()
         .duration(duration)
         .call(d3.svg.axis().orient("left").scale(y1));
+        
+      var yLabel = yaxis.selectAll('text.alabel')
+        .data([name[1]]);
+      yLabel.enter().append('text')
+        .attr('class', 'alabel')
+        .attr('transform', 'rotate(-90)')
+        .attr('y', -25)
+        .attr('x', -(height / 2))
+        .attr('dy', '-1em')
+        .style('text-anchor', 'middle');
+      yLabel.text(function(d) { return d; });
+      yLabel.exit().remove();
+        
       
       // create a group for the circles if it doesn't yet exist  
       g.selectAll('g.circles')
@@ -261,6 +286,40 @@ export default function(dispatch) {
   scatterplot.y = function(yVal) {
     if (!arguments.length) return yValue;
     yValue = yVal;
+    return scatterplot;
+  }
+  
+  /**
+   * Sets the x-axis label for the scatterplot.
+   * @default Blank value; no axis label is drawn.
+   * @param {string} [xName] - The text that describes the x-axis
+   */
+  scatterplot.xLabel = function(xName) {
+    if (!arguments.length) return name[0];
+    name[0] = xName;
+    return scatterplot;
+  }
+  
+  /**
+   * Sets the y-axis label for the scatterplot
+   * @default Blank value; no axis label is drawn
+   * @param {string} [yName] - The text that describes the y-axis
+   */
+  scatterplot.yLabel = function(yName) {
+    if (!arguments.length) return name[1];
+    name[1] = yName; 
+    return scatterplot;
+  }
+  
+  /**
+   * Sets the x- and y-axis labels for the scatterplot at the same time, given an array of two strings.
+   * @default Blank value; no axis label is drawn for both axes
+   * @param {string[]} [names] - Array of labels to describe the x- and y-axis, respectively 
+   */
+  scatterplot.labels = function(names) {
+    if (!arguments.length) return name; 
+    if (names.length != 2) throw "Expected an array of length two for scatterplot.labels: [xLabel, yLabel]"
+    name = names;
     return scatterplot;
   }
   

@@ -13,6 +13,10 @@
         .axis text {
             font: 10px sans-serif;
         }
+        
+        .axis text.alabel {
+            font-size: 12px;
+        }
             
         .axis path,
         .axis line {
@@ -50,6 +54,7 @@
         .doBrush(true)
         .x(function(d) { return d['Anger']; })
         .y(function(d) { return d['Reassure']; })
+        .labels(["Anger", "Reassure"])
         .groupColumn(function(d) { return d['genre']; });
         
     var test = twoDFactory.createComponent({type: 'scatterplot'})
@@ -58,6 +63,7 @@
         .doBrush(true)
         .x(function(d) { return d['Positivity']; })
         .y(function(d) { return d['Negativity']; })
+        .labels(["Positivity","Negativity"])
         .groupColumn(function(d) { return d['genre']; });
         
     //d3.csv("venn2-small.csv", function(d) { return [+d[0], +d[1], d['G']]; }, function(error, rows) {
@@ -69,13 +75,13 @@
             .attr('height', 300)
           .append('g')
             .attr('class', 'singleplot')
-            .attr('transform', "translate(30, 10)")
+            .attr('transform', "translate(50, 10)")
             .call(scatterplot, ".singleplot");
             
         d3.select("#d3canvas")
           .append('g')
             .attr('class', 'singleplot2')
-            .attr('transform', 'translate(350, 10)')
+            .attr('transform', 'translate(400, 10)')
             .call(test, ".singleplot2");
 
         var list = d3.select("#dataPoints").call(objectlist);
