@@ -1,5 +1,6 @@
 import objectlist from "./objectlist";
 import scatterplot from "./scatterplot";
+import dropdown from "./dropdown";
 
 var twoDimFactory = function() {
     this.dispatch = d3.dispatch("redraw");
@@ -14,6 +15,8 @@ twoDimFactory.prototype.createComponent = function createTwoDimComponent(options
         parentClass = scatterplot;
     } else if (options.type === 'objectlist') {
         parentClass = objectlist;
+    } else if (options.type === 'dropdown') {
+        parentClass = dropdown;
     } else {
         throw "Unknown component name passed to twoDimFactory.createComponent()";
     }
@@ -21,7 +24,6 @@ twoDimFactory.prototype.createComponent = function createTwoDimComponent(options
     var newObject = new parentClass(this.dispatch);
     this.createdComponents.push(newObject); 
     return newObject;
-    //return new parentClass(this.dispatch);
 };
 
 twoDimFactory.prototype.setData = function(data) {

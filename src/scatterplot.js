@@ -159,7 +159,8 @@ export default function(dispatch) {
       // create the brush if it should exist        
       brushGroup.enter().append('g')
           .attr('class', 'brush')
-          .call(brush);
+          //.call(brush);
+      brushGroup.call(brush);
 
       // if the brush is to be removed, force no selected indices
       var brushDirty = false;          

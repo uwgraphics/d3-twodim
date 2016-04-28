@@ -1,0 +1,19 @@
+var tape = require("tape");
+var d3 = require("d3");
+var jsdom = require("jsdom");
+var d3_twodim = require("../");
+var simpleData = [
+  {test1: 'val1', test2: 'val2', test3: 'val3'},
+  {test1: 'val4', test2: 'val5', test3: 'val6'},
+  {test1: 'val7', test2: 'val8', test3: 'val9'},   
+]; 
+
+tape("Dropdown generates dimension names correctly", function(test) {
+  var drop = d3_twodim.dropdown()
+    .data(simpleData)
+    .mapFunction("dims");
+    
+  // ?? how do we test this when it adds things to the DOM?
+  test.ok(drop);
+  test.end();  
+});

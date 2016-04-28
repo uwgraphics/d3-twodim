@@ -34,9 +34,9 @@ export default function(dispatch) {
     })
   }
   
-  function objectlist(selection) {
+  function objectlist(selection, name) {
     selection = selection.selectAll('ul')
-      .data(['hi']).enter()
+      .data(['0']).enter()
       .append('ul')
         .attr('class', 'list-group');
         //.classed(liststyle, true);
@@ -48,7 +48,7 @@ export default function(dispatch) {
     
     redraw(selection);
 
-    dispatch.on('redraw.' + selection, function(dataIndices) {
+    dispatch.on('redraw.' + name, function(dataIndices) {
       console.log('was dispatched, got:');
       console.log(dataIndices); 
       
