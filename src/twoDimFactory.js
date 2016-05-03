@@ -1,9 +1,10 @@
 import objectlist from "./objectlist";
 import scatterplot from "./scatterplot";
 import dropdown from "./dropdown";
+import legend from "./legend";
 
 var twoDimFactory = function() {
-    this.dispatch = d3.dispatch("redraw");
+    this.dispatch = d3.dispatch("redraw", 'groupUpdate');
     this.createdComponents = [];
 };
 
@@ -17,6 +18,8 @@ twoDimFactory.prototype.createComponent = function createTwoDimComponent(options
         parentClass = objectlist;
     } else if (options.type === 'dropdown') {
         parentClass = dropdown;
+    } else if (options.type === 'legend') {
+        parentClass = legend;
     } else {
         throw "Unknown component name passed to twoDimFactory.createComponent()";
     }

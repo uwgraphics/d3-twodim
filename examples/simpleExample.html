@@ -29,6 +29,14 @@
             fill-opacity: 0.3;
         }
         
+        .legend .item {
+            cursor: pointer;
+        }
+        
+        .legend .disabled {
+            opacity: 0.3;
+        }
+        
         .extent {
             fill: #000;
             fill-opacity: 0.125;
@@ -87,12 +95,20 @@
             d3.select(".singleplot").call(scatterplot, ".singpleplot");
         });
         
+    var legend = twoDFactory.createComponent({type: 'legend'});
+        
     //d3.csv("venn2-small.csv", function(d) { return [+d[0], +d[1], d['G']]; }, function(error, rows) {
     d3.csv("plays1554.csv", function(error, rows) {
         twoDFactory.setData(rows);
         
+        d3.select("#d3canvas")
+          .append('g')
+            .attr('class', 'legend')
+            .attr('transform', 'translate(850, 10)')
+            .call(legend, '.legend');
+        
         var singlePlot = d3.select("#d3canvas")
-            .attr('width', 850)
+            .attr('width', 1050)
             .attr('height', 300)
           .append('g')
             .attr('class', 'singleplot')

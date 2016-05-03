@@ -7,6 +7,7 @@ tape("Scatterplot has the expected defaults", function(test) {
   test.equal(s.circleSize(), 3);
   test.equal(s.doBrush(), false);
   test.equal(s.changeDuration(), 500);
+  test.deepEqual(s.labels(), ["", ""]);
   test.end();
 });
 
@@ -28,6 +29,25 @@ tape("Scatterplot sets labels correctly", function(test) {
   test.equal(s.yLabel(), "test_y2");
   
   test.deepEqual(s.labels(), ["test_x2", "test_y2"]);
+  
+  test.end();
+});
+
+tape("Scatterplot interoperates fields and labels correctly", function(test) {
+  var s = scatterplot.scatterplot();
+  s.fields(['xdim', 'ydim']);
+  test.equal(s.xField(), 'xdim');
+  test.equal(s.xLabel(), 'xdim');
+  test.equal(s.yField(), 'ydim');
+  test.equal(s.yLabel(), 'ydim');
+  
+  s.xField('xdim2');
+  test.deepEqual(s.fields(), ['xdim2', 'ydim']);
+  test.deepEqual(s.labels(), ['xdim2', 'ydim']);
+  
+  s.yField('ydim2');
+  test.deepEqual(s.fields(), ['xdim2', 'ydim2']);
+  test.deepEqual(s.labels(), ['xdim2', 'ydim2']);
   
   test.end();
 });

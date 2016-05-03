@@ -31,6 +31,7 @@ export default function(dispatch) {
       colorScale = colorScale || d3.scale.category10();
       colorScale.domain(foundGroups);
       console.log("found %d groups", foundGroups.length);
+      dispatch.groupUpdate(foundGroups, colorScale);
       
       var x1 = d3.scale.linear()
         .domain(xd)
@@ -321,6 +322,44 @@ export default function(dispatch) {
     if (!arguments.length) return name; 
     if (names.length != 2) throw "Expected an array of length two for scatterplot.labels: [xLabel, yLabel]"
     name = names;
+    return scatterplot;
+  }
+  
+  /**
+   * Convenience method to set the field for the x-dimension (given the row is an object and not an array), and co-occurrently sets the xLabel
+   * @default Function that selects the value for the x-dimension (e.g. d[0])
+   * @param {string} [xField] - The field from which to read the continuous value for the x-dimension
+   */
+  scatterplot.xField = function(xField) {
+    if (!arguments.length) return name[0];
+    name[0] = xField;
+    xValue = function(d) { return d[xField]; };
+    return scatterplot; 
+  }
+  
+  /**
+   * Convenience method to set the field for the y-dimension (given the row is an object and not an array), and co-occurrently sets the yLabel
+   * @default Function that selects the value for the y-dimension (e.g. d[0])
+   * @param {string} [yField] - The field from which to read the continuous value for the y-dimension
+   */
+  scatterplot.yField = function(yField) {
+    if (!arguments.length) return name[1];
+    name[1] = yField;
+    yValue = function(d) { return d[yField]; };
+    return scatterplot;
+  }
+  
+  /**
+   * Convenience method to set fields for both dimensions (given that rows are objects and not arrays), and co-occurrently sets the labels for the two dimensions
+   * @default Blank values for axis labels
+   * @param {string[]} [fields] - Array of fields for the x- and y-axis, respectively
+   */
+  scatterplot.fields = function(fields) {
+    if (!arguments.length) return name;
+    if (fields.length != 2) throw "Expected an array of length two for scatterplot.fields: [xField, yField]";
+    name = fields;
+    xValue = function(d) { return d[fields[0]]; };
+    yValue = function(d) { return d[fields[1]]; };
     return scatterplot;
   }
   
