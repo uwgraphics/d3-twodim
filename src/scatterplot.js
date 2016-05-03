@@ -232,7 +232,7 @@ export default function(dispatch) {
   }
   
   /**
-   * Gets or sets the data bound to points in the scatterplot.  Following D3.js convention, this should be an array of anonymous objects
+   * Gets or sets the data bound to points in the scatterplot.  Following D3.js convention, this should be an array of anonymous objects.  Generally set all at once by the twoDFactory.setData() method
    * @default Empty array: []
    * @param {Object[]} The data of the scatterplot.  Set the `.x()` and `.y()` accessors for the x- and y-dimensions of the scatterplot
    * @param {function(Object[]): string} The key function for the data (similar to the key function in `d3.data([data, [key]])`)
@@ -399,7 +399,7 @@ export default function(dispatch) {
   /**
    * The function to select the grouping value from the datapoint
    * @default No function, meaning that all points are considered to be from the same series
-   * @param {function(): string} [grpVal] - The function that returns the group identifier for a given point
+   * @param {function(Object): string} [grpVal] - The function that returns the group identifier for a given point
    */
   scatterplot.groupColumn = function(grpVal) {
     if (!arguments.length) return grpVal;

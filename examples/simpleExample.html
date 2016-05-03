@@ -65,8 +65,7 @@
         .doBrush(true)
         .x(function(d) { return d['Anger']; })
         .y(function(d) { return d['Reassure']; })
-        .labels(["Anger", "Reassure"])
-        .groupColumn(function(d) { return d['genre']; });
+        .labels(["Anger", "Reassure"]);
         
     var test = twoDFactory.createComponent({type: 'scatterplot'})
         .width(400)
@@ -74,8 +73,7 @@
         .doBrush(true)
         .x(function(d) { return d['Positivity']; })
         .y(function(d) { return d['Negativity']; })
-        .labels(["Positivity","Negativity"])
-        .groupColumn(function(d) { return d['genre']; });
+        .labels(["Positivity", "Negativity"]);
         
     var dropdownX = twoDFactory.createComponent({type: 'dropdown'})
         .mapFunction("dims")
@@ -99,7 +97,7 @@
         
     //d3.csv("venn2-small.csv", function(d) { return [+d[0], +d[1], d['G']]; }, function(error, rows) {
     d3.csv("plays1554.csv", function(error, rows) {
-        twoDFactory.setData(rows);
+        twoDFactory.setData(rows).setGroupColumn(function(d) { return d.genre; });
         
         d3.select("#d3canvas")
           .append('g')

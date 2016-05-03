@@ -33,6 +33,17 @@ twoDimFactory.prototype.setData = function(data) {
     this.createdComponents.forEach(function(component) {
         component.data(data);
     });
+    return this;
+};
+
+twoDimFactory.prototype.setGroupColumn = function(groupSelector) {
+  // uses .name to grab name of function; see MDN:
+  // <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/name>
+  var scatterAndLegends = this.createdComponents
+    .filter(function(d) { return d.name === 'scatterplot' || d.name === 'legend'; });
+    
+  scatterAndLegends.forEach(function(d) { d.groupColumn(groupSelector); });
+  return this;  
 };
 
 export default twoDimFactory;

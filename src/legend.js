@@ -5,7 +5,7 @@ export default function(dispatch) {
 
   var groups = ['unknown'];
   var groupData = {name: 'unknown', active: true};
-  var groupColumn = function(d) { return d; }; // TODO: hook this up
+  var groupCol = function(d) { return d; }; // TODO: hook this up
   var colorScale = undefined;
   
   var allActive = true;
@@ -40,7 +40,7 @@ export default function(dispatch) {
         .map(function(d) { return d.name; });
         
       thisData.forEach(function(d, i) {
-        if (selectedGroups.indexOf(groupColumn(d)) != -1)
+        if (selectedGroups.indexOf(groupCol(d)) != -1)
           selectedIndices.push(i);
       });
     }
@@ -111,6 +111,25 @@ export default function(dispatch) {
     });
   }
   
+  /**
+   * Gets or sets the data bound to points in the scatterplot.  Following D3.js convention, this should be an array of anonymous objects.  Generally set all at once by the twoDFactory.setData() method
+   * @default Empty array: []
+   * @param {Object[]} [newData] - The data of the scatterplot.  Set the `.x()` and `.y()` accessors for the x- and y-dimensions of the scatterplot
+   * @param {function(Object[]): string} [key] - The key function for the data (similar to the key function in `d3.data([data, [key]])`)
+   */
+  legend.data = function(newData, key) {
+    if (!arguments.length) return thisData;
+    thisData = newData;
+    if (key) thisDataKey = key;
+    return legend;
+  }
+  
+  /**
+   * The groups and color scale to display in the legend.
+   * @default One unknown class (e.g. ['unknown'])
+   * @param {string[]} [newGroups] - A string array of the new group names
+   * @param {function(string): string} [newColorScale] - A D3 categorical color scale that converts the group name to its representative color
+   */
   legend.groups = function(newGroups, newColorScale) {
     if (!arguments.length) return groups;
     groups = newGroups;
@@ -118,10 +137,14 @@ export default function(dispatch) {
     return legend;
   }
   
-  legend.data = function(newData, key) {
-    if (!arguments.length) return thisData;
-    thisData = newData;
-    if (key) thisDataKey = key;
+  /**
+   * The function to select the grouping value from the datapoint.  Required in order to send updates to all other connected components when conditioning on groups
+   * @default Identity function, which has no effect when deselecting groups.
+   * @param {function(Object): string} [grpVal] - The function that returns the group identifier for a given point
+   */
+  legend.groupColumn = function(grpVal) {
+    if (!arguments.length) return groupCol
+    groupCol = grpVal;
     return legend;
   }
   
