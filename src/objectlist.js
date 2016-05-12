@@ -49,13 +49,16 @@ export default function(dispatch) {
     redraw(selection);
 
     dispatch.on('highlight.' + name, function(selector) {
-      console.log('was dispatched, got:');
-      console.log(selector); 
-      
-      selection.each(function(d, i) {
-        var g = d3.select(this);
-        g.data([thisData.filter(selector)], thisDataKey);
-      });
+      if (typeof selector === "function") {   
+        selection.each(function(d, i) {
+          var g = d3.select(this);
+          g.data([thisData.filter(selector)], thisDataKey);
+        });
+      } else if (!selector) {
+        selection.each(function(d, i) {
+          d3.select(this).data([], thisDataKey);
+        });
+      }
       
       redraw(selection);
     });

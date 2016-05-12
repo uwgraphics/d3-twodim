@@ -1,11 +1,11 @@
 export default function(dispatch) {
   var thisData = [];
-  var thisDataKey = undefined;//function(d) { return d };
+  var thisDataKey = undefined;
   var localDispatch = d3.dispatch("click");
 
   var groups = ['unknown'];
   var groupData = {name: 'unknown', active: true};
-  var groupCol = function(d) { return d; }; // TODO: hook this up
+  var groupCol = function(d) { return d; }; 
   var colorScale = undefined;
   
   var allActive = true;
@@ -31,16 +31,15 @@ export default function(dispatch) {
     
     localDispatch.click(d, i);
     
-    var selector = function() { return true; };
-    if (!allActive) {
+    if (allActive) {
+      dispatch.highlight(false);
+    } else {
       var selectedGroups = groupData
         .filter(function(d) { return d.active; })
         .map(function(d) { return d.name; });
         
-      selector = function(d) { return selectedGroups.indexOf(groupCol(d)) != -1; };
+      dispatch.highlight(function(d) { return selectedGroups.indexOf(groupCol(d)) != -1; });
     }
-    
-    dispatch.highlight(selector);
   }
 
   function redraw(selection) {

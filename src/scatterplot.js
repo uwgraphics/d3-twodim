@@ -174,7 +174,7 @@ export default function(dispatch) {
         
       // hack to clear selected points post-hoc after removing brush element 
       // (to get around inifinite-loop problem if called from within the exit() selection)
-      if (brushDirty) dispatch.highlight(function() { return true; });
+      if (brushDirty) dispatch.highlight(false);
         
       function brushmove(p) {
         var e = brush.extent();
@@ -196,7 +196,7 @@ export default function(dispatch) {
       function brushend() {
         if (brush.empty()) {
           g.selectAll('.hidden').classed('hidden', false);
-          dispatch.highlight(function() { return true; });
+          dispatch.highlight(false);
         }
       }
     });
@@ -218,8 +218,29 @@ export default function(dispatch) {
       //   return dataIndices.indexOf()
       // });
       
-      selection.selectAll('circle').classed('hidden', true);
-      selection.selectAll('circle').filter(selector).classed('hidden', false);
+      var allPoints = selection.selectAll('circle');
+      if (typeof selector === "function") {
+        allPoints.classed('hidden', true);
+        allPoints.filter(selector).classed('hidden', false);
+        
+        // reorder points to bring highlighted points to the front
+        allPoints.sort(function(a, b) {
+          if (selector(a)) {
+            if (selector(b))
+              return 0;
+            else
+              return 1;
+          } else {
+            if (selector(b))
+              return -1;
+            else
+              return 0;
+          }
+        });
+      } else if (!selector) {
+        allPoints.classed('hidden', false);
+        allPoints.sort(function(a,b) { return d3.ascending(a.orig_index, b.orig_index); });
+      }
       
       // this lags the webpage too much... why?
       // ^^ because it contains transitions that don't actually transition! 
@@ -237,6 +258,11 @@ export default function(dispatch) {
   scatterplot.data = function(newData, key) {
     if (!arguments.length) return scatterData;
     scatterData = newData;
+    
+    // add original index value (this could be randomized)
+    scatterData.forEach(function(d, i) {
+      d['orig_index'] = i;
+    });
     
     if (key)
       scatterDataKey = key;
