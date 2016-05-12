@@ -32,7 +32,7 @@ export default function(dispatch) {
     
     redraw(selection);
     
-    dispatch.on('redraw.' + name, function(selectedIndices) {
+    dispatch.on('highlight.' + name, function(selector) {
       selection.each(function(d, i) {
         var g = d3.select(this);
         g.data([mapFunc(thisData)], thisDataKey);

@@ -30,22 +30,17 @@ export default function(dispatch) {
     }
     
     localDispatch.click(d, i);
-    // call redraw (HOW???)
     
-    // gather the relevant IDs
-    var selectedIndices = [];
+    var selector = function() { return true; };
     if (!allActive) {
       var selectedGroups = groupData
         .filter(function(d) { return d.active; })
         .map(function(d) { return d.name; });
         
-      thisData.forEach(function(d, i) {
-        if (selectedGroups.indexOf(groupCol(d)) != -1)
-          selectedIndices.push(i);
-      });
+      selector = function(d) { return selectedGroups.indexOf(groupCol(d)) != -1; };
     }
     
-    dispatch.redraw(selectedIndices);
+    dispatch.highlight(selector);
   }
 
   function redraw(selection) {
@@ -96,7 +91,7 @@ export default function(dispatch) {
     resetData(selection);
     redraw(selection);
     
-    dispatch.on('redraw.' + name, function(selectedIndices) {
+    dispatch.on('highlight.' + name, function(selectedIndices) {
       console.log("called legend dispatch (redraw)");
       redraw(selection);
     });

@@ -174,7 +174,7 @@ export default function(dispatch) {
         
       // hack to clear selected points post-hoc after removing brush element 
       // (to get around inifinite-loop problem if called from within the exit() selection)
-      if (brushDirty) dispatch.redraw([]);
+      if (brushDirty) dispatch.highlight(function() { return true; });
         
       function brushmove(p) {
         var e = brush.extent();
@@ -188,13 +188,15 @@ export default function(dispatch) {
           return false; 
         });
         
-        dispatch.redraw(indices)
+        dispatch.highlight(function(d) { 
+          return !(e[0][0] > xValue(d) || xValue(d) > e[1][0] || e[0][1] > yValue(d) || yValue(d) > e[1][1]);
+        });
       }
       
       function brushend() {
         if (brush.empty()) {
           g.selectAll('.hidden').classed('hidden', false);
-          dispatch.redraw([]);
+          dispatch.highlight(function() { return true; });
         }
       }
     });
@@ -208,7 +210,7 @@ export default function(dispatch) {
     
     redraw(selection);
     
-    dispatch.on('redraw.' + name, function(dataIndices) {
+    dispatch.on('highlight.' + name, function(selector) {
       console.log("scatterplot dispatch called for " + name + "!");
       
       // TODO: try to sort to put highlighted circles in front
@@ -216,13 +218,8 @@ export default function(dispatch) {
       //   return dataIndices.indexOf()
       // });
       
-      if (dataIndices.length == 0) {
-        selection.selectAll("circle").classed('hidden', false);
-      } else {
-        selection.selectAll("circle").classed("hidden", function(d, i) {
-          return dataIndices.indexOf(i) == -1;
-        });
-      }
+      selection.selectAll('circle').classed('hidden', true);
+      selection.selectAll('circle').filter(selector).classed('hidden', false);
       
       // this lags the webpage too much... why?
       // ^^ because it contains transitions that don't actually transition! 

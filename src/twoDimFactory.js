@@ -4,7 +4,7 @@ import dropdown from "./dropdown";
 import legend from "./legend";
 
 var twoDimFactory = function() {
-    this.dispatch = d3.dispatch("redraw", 'groupUpdate');
+    this.dispatch = d3.dispatch("highlight", 'groupUpdate');
     this.createdComponents = [];
 };
 

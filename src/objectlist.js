@@ -48,14 +48,13 @@ export default function(dispatch) {
     
     redraw(selection);
 
-    dispatch.on('redraw.' + name, function(dataIndices) {
+    dispatch.on('highlight.' + name, function(selector) {
       console.log('was dispatched, got:');
-      console.log(dataIndices); 
+      console.log(selector); 
       
-      filterFunc = function(d, i) { return dataIndices.indexOf(i) != -1; };
       selection.each(function(d, i) {
         var g = d3.select(this);
-        g.data([thisData.filter(filterFunc)], thisDataKey);
+        g.data([thisData.filter(selector)], thisDataKey);
       });
       
       redraw(selection);
