@@ -3,27 +3,40 @@ export default function(dispatch) {
   var thisDataKey = undefined;
   
   var mapFunc = function(d, i) { return d; };
+  var isMulti = false;
   
   var localDispatch = d3.dispatch("change");
   
   function redraw(selection) {
     selection.each(function(data, i) {
       var g = d3.select(this);
-        var objects = g.selectAll('option')
-          .data(data);
-          
-        objects.enter().append('option')
-          .attr('value', function(d) { return d; })
-          .html(function(d) { return d; });
+      var objects = g.selectAll('option')
+        .data(data);
+        
+      objects.enter().append('option')
+        .attr('value', function(d) { return d; })
+        .html(function(d) { return d; });
+        
+      objects.exit().remove();
     });
   };
     
   function dropdown(selection, name) {
-    selection = selection.selectAll('select')
-      .data(['0']).enter()
+    var dataSelection = selection.selectAll('select')
+      .data([isMulti ? '1' : '0']);
+      
+    // new type of dropdown
+    dataSelection.enter()
       .append('select')
         .attr('class', 'dropdown')
         .on("change", localDispatch.change);
+        
+     // update dropdown based on whether multiselect is on
+     selection = dataSelection.attr('multiple', isMulti ? true : null)
+      .style('resize', isMulti ? "vertical" : "none");
+     
+     // remove old dropdowns
+     dataSelection.exit().remove();
     
     selection.each(function(d, i) {
         var g = d3.select(this);
@@ -68,6 +81,7 @@ export default function(dispatch) {
       mapFunc = value;
     } else {
       if (["headers", "header", "dims", "dimensions", "features"].indexOf(value) != -1) {
+        isMulti = false;
         mapFunc = function(data) {
           var ret = [];
           for (var prop in data[0]) {
@@ -79,6 +93,7 @@ export default function(dispatch) {
         }
       } else if (["values", "column"].indexOf(value) != -1) {
         if (arguments.length < 2) throw "Expected second parameter columnName";
+        isMulti = true;
         mapFunc = function(data) { 
           var mapped = data.map(function(d, i) {
             return d[columnName];

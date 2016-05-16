@@ -24,8 +24,8 @@ export default function(dispatch) {
     console.log("called scatterplot.redraw()");
     selection.each(function(data, i) {
       var g = d3.select(this);
-      var xd = d3.extent(data, function(e) { return xValue(e); });
-      var yd = d3.extent(data, function(e) { return yValue(e); });
+      var xd = d3.extent(data, function(e) { return +xValue(e); });
+      var yd = d3.extent(data, function(e) { return +yValue(e); });
             
       foundGroups = grpValue == null ? ["undefined"] : d3.set(data.map(function(e) { return grpValue(e); })).values();
       colorScale = colorScale || d3.scale.category10();
@@ -129,27 +129,27 @@ export default function(dispatch) {
         .attr('r', ptSize)
         .attr('cx', function(d) { return x0(xValue(d)); })
         .attr('cy', function(d) { return y0(yValue(d)); })
-        .style('fill', function(d) { return colorScale(grpValue(d)); })
+        .style('fill', grpValue ? function(d) { return colorScale(grpValue(d)); } : colorScale('undefined'))
         .style('opacity', 1e-6)
       .transition()
         .duration(duration)
         .attr('cx', function(e) { return x1(xValue(e)); })
         .attr('cy', function(e) { return y1(yValue(e)); })
-        .style('fill', function(d) { return colorScale(grpValue(d)); })
+        .style('fill', grpValue ? function(d) { return colorScale(grpValue(d)); } : colorScale('undefined'))
         .style('opacity', 1);
         
       points.transition()
         .duration(duration)
         .attr('cx', function(e) { return x1(xValue(e)); })
         .attr('cy', function(e) { return y1(yValue(e)); })
-        .style('fill', function(d) { return colorScale(grpValue(d)); })
+        .style('fill', grpValue ? function(d) { return colorScale(grpValue(d)); } : colorScale('undefined'))
         .style('opacity', 1);
         
       points.exit().transition()
         .duration(duration)
         .attr('cx', function(e) { return x1(xValue(e)); })
         .attr('cy', function(e) { return y1(yValue(e)); })
-        .style('fill', function(d) { return colorScale(grpValue(d)); })
+        .style('fill', grpValue ? function(d) { return colorScale(grpValue(d)); } : colorScale('undefined'))
         .style('opacity', 1e-6)
         .remove();
         
@@ -211,12 +211,7 @@ export default function(dispatch) {
     redraw(selection);
     
     dispatch.on('highlight.' + name, function(selector) {
-      console.log("scatterplot dispatch called for " + name + "!");
-      
-      // TODO: try to sort to put highlighted circles in front
-      // selection.selectAll("circle").sort(function(a,b) {
-      //   return dataIndices.indexOf()
-      // });
+      // console.log("scatterplot dispatch called for " + name + "!");
       
       var allPoints = selection.selectAll('circle');
       if (typeof selector === "function") {
@@ -381,8 +376,8 @@ export default function(dispatch) {
     if (!arguments.length) return name;
     if (fields.length != 2) throw "Expected an array of length two for scatterplot.fields: [xField, yField]";
     name = fields;
-    xValue = function(d) { return d[fields[0]]; };
-    yValue = function(d) { return d[fields[1]]; };
+    xValue = function(d) { return d[name[0]]; };
+    yValue = function(d) { return d[name[1]]; };
     return scatterplot;
   }
   

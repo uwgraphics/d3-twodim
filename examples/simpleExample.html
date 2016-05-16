@@ -26,7 +26,7 @@
         }
         
         .hidden {
-            fill-opacity: 0.3;
+            fill-opacity: 0.2;
         }
         
         .legend .item {
@@ -49,6 +49,8 @@
     <div id="dataPoints">
         <div class="dropdown-x">X dimension: </div>
         <div class="dropdown-y">Y dimension: </div>
+        <div class="dropdown-authors">Authors: </div>
+        <button id="swapMulti">Swap Multi</button>
     </div>
     <script type="text/javascript" src="//d3js.org/d3.v3.js"></script>
     <script type="text/javascript" src="../build/d3-twodim.js"></script>
@@ -93,6 +95,20 @@
             d3.select(".singleplot").call(scatterplot, ".singpleplot");
         });
         
+    var multiselect = twoDFactory.createComponent({type: 'dropdown'})
+        .mapFunction('values', 'author')
+        .on('change', function(d, i) {
+           var selected = d3.select(this).selectAll('option')
+            .filter(function(d) { return this.selected; });
+          
+          var ret = [];
+          selected.each(function(d) { ret.push(d); });
+          
+          twoDFactory.highlight(function(d) { 
+            return ret.indexOf(d["author"]) != -1;
+          }); 
+        });
+        
     var legend = twoDFactory.createComponent({type: 'legend'});
         
     //d3.csv("venn2-small.csv", function(d) { return [+d[0], +d[1], d['G']]; }, function(error, rows) {
@@ -121,7 +137,19 @@
 
         var dimXDrop = d3.selectAll("#dataPoints .dropdown-x").call(dropdownX, 'ydim');
         var dimYDrop = d3.select("#dataPoints .dropdown-y").call(dropdownY, 'ydim');
+        d3.select("#dataPoints .dropdown-authors").call(multiselect, 'authors');
         var list = d3.select("#dataPoints").call(objectlist, 'dataPoints');
+        
+        var isMulti = true;
+        d3.select("#swapMulti").on('click', function(d) { 
+            if (isMulti)
+                multiselect.mapFunction("dims");
+            else
+                multiselect.mapFunction("values", "author");
+            
+            d3.select(".dropdown-authors").call(multiselect, 'authors');
+            isMulti = !isMulti;
+        })
     });
     </script>
 </body>
