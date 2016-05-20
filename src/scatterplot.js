@@ -2,6 +2,7 @@ export default function(dispatch) {
   // 'global' declarations go here
   var scatterData = [];
   var scatterDataKey = undefined;
+  var localDispatch = d3.dispatch('mouseover', 'mouseout');
   
   var width = 1;
   var height = 1;
@@ -17,6 +18,8 @@ export default function(dispatch) {
   var ptIdentifier = function(d, i) { return i; };
   
   var doBrush = false;
+  var doVoronoi = false;
+  var voronoi = undefined;
   
   var duration = 500;
   
@@ -46,20 +49,7 @@ export default function(dispatch) {
         .y(y1)
         .on("brush", brushmove)
         .on("brushend", brushend);
-      
-      // retireve/stash scales to make for seamless updating;
-      // with thanks to the qq plugin for making this cute: 
-      // <https://github.com/d3/d3-plugins/blob/master/qq/qq.js>
-      var x0, y0;
-      if (this.__chart__) {
-        x0 = this.__chart__.x0;
-        y0 = this.__chart__.y0;
-      } else {
-        x0 = d3.scale.linear().domain([0, Infinity]).range(x1.range());
-        y0 = d3.scale.linear().domain([0, Infinity]).range(y1.range());
-      }
-      this.__chart__ = {x: x1, y: y1};
-      
+        
       // draw axes first so points can go over the axes
       var xaxis = g.selectAll('g.xaxis')
         .data([xd]);
@@ -113,7 +103,29 @@ export default function(dispatch) {
         .style('text-anchor', 'middle');
       yLabel.text(function(d) { return d; });
       yLabel.exit().remove();
-        
+      
+      
+      // put the brush above the points to allow hover events; see 
+      //   <http://wrobstory.github.io/2013/11/D3-brush-and-tooltip.html>
+      //   and <http://bl.ocks.org/wrobstory/7612013> ..., but still have
+      //   issues: <http://bl.ocks.org/yelper/d38ddf461a0175ebd927946d15140947>
+      // create the brush group if it doesn't exist and is requested by `doBrush`
+      var brushGroup = g.selectAll('g.brush')
+        .data([0]);
+
+      // create the brush if it should exist        
+      brushGroup.enter().append('g')
+        .attr('class', 'brush')
+      brushGroup.call(brush);
+
+      // if the brush is to be removed, force no selected indices
+      var brushDirty = false;          
+      brushGroup.exit()
+        .each(function() { 
+          brushDirty = true;
+          g.selectAll('circle.hidden').classed('hidden', false); 
+        })
+        .remove();        
       
       // create a group for the circles if it doesn't yet exist  
       g.selectAll('g.circles')
@@ -127,16 +139,41 @@ export default function(dispatch) {
       points.enter().append('circle')
         .attr("class", "point")
         .attr('r', ptSize)
-        .attr('cx', function(d) { return x0(xValue(d)); })
-        .attr('cy', function(d) { return y0(yValue(d)); })
-        .style('fill', grpValue ? function(d) { return colorScale(grpValue(d)); } : colorScale('undefined'))
-        .style('opacity', 1e-6)
-      .transition()
-        .duration(duration)
         .attr('cx', function(e) { return x1(xValue(e)); })
         .attr('cy', function(e) { return y1(yValue(e)); })
         .style('fill', grpValue ? function(d) { return colorScale(grpValue(d)); } : colorScale('undefined'))
-        .style('opacity', 1);
+        .style('opacity', 1)
+        .on('mouseover', localDispatch.mouseover)
+        .on('mouseout', localDispatch.mouseout)
+        .on('mousedown', function() {
+          // if a brush is started over a point, hand it off to the brush
+          if (doBrush) {
+            // var brushNode = g.select(".brush").node() 
+            var bubbleEvent = new Event('mousedown');
+            bubbleEvent.pageX = d3.event.pageX;
+            bubbleEvent.clientX = d3.event.clientX;
+            bubbleEvent.pageY = d3.event.pageY;
+            bubbleEvent.clientY = d3.event.clientY;
+            // brushNode.dispatchEvent(bubbleEvent);
+            
+            // figure out where to send the event to
+            var pos = d3.mouse(this);
+            var b = d3.select('.brush .extent').node().getBBox();
+            
+            // test if within bounds of brush extent:
+            if (pos[0] < b.x - 3 || pos[1] < b.y - 3 || 
+              pos[0] > b.x + b.width + 3 || 
+              pos[1] > b.y + b.height + 3) {
+                
+              // send the mouse event to outside the bounds
+              // d3.select('.brush .background')
+              //   .node().dispatchEvent(bubbleEvent);
+              brush.event();
+            } else {
+              console.log("inside bounds!")
+            }
+          }
+        });
         
       points.transition()
         .duration(duration)
@@ -147,34 +184,27 @@ export default function(dispatch) {
         
       points.exit().transition()
         .duration(duration)
-        .attr('cx', function(e) { return x1(xValue(e)); })
-        .attr('cy', function(e) { return y1(yValue(e)); })
-        .style('fill', grpValue ? function(d) { return colorScale(grpValue(d)); } : colorScale('undefined'))
         .style('opacity', 1e-6)
-        .remove();
-        
-      // create the brush group if it doesn't exist and is requested by `doBrush`
-      var brushGroup = g.selectAll('g.brush')
-        .data(doBrush ? [0] : []);
-
-      // create the brush if it should exist        
-      brushGroup.enter().append('g')
-          .attr('class', 'brush')
-          //.call(brush);
-      brushGroup.call(brush);
-
-      // if the brush is to be removed, force no selected indices
-      var brushDirty = false;          
-      brushGroup.exit()
-        .each(function() { 
-          brushDirty = true;
-          g.selectAll('circle.hidden').classed('hidden', false); 
-        })
         .remove();
         
       // hack to clear selected points post-hoc after removing brush element 
       // (to get around inifinite-loop problem if called from within the exit() selection)
       if (brushDirty) dispatch.highlight(false);
+      
+      // deal with setting up the voronoi group
+      var voronoiGroup = g.selectAll('g.voronoi')
+        .data(doVoronoi ? [0] : []);
+      voronoiGroup.enter().append('g')
+        .attr('class', 'voronoi');
+      voronoiGroup.exit().remove();
+      
+      if (doVoronoi) {
+        voronoi = d3.geom.voronoi()
+          .x(function(d) { return x1(xValue(d)); })
+          .y(function(d) { return y1(yValue(d)); })
+          .clipExtent([[0, 0], [width, height]]);
+      }
+        
         
       function brushmove(p) {
         var e = brush.extent();
@@ -218,6 +248,27 @@ export default function(dispatch) {
         allPoints.classed('hidden', true);
         allPoints.filter(selector).classed('hidden', false);
         
+        // generate relevant voronoi
+        if (doVoronoi) {
+          selection.selectAll('g.voronoi').selectAll('path').remove();
+          selection.selectAll('g.voronoi').selectAll('path')
+            .data(voronoi(scatterData.filter(selector)))
+            .enter().append('path')
+            .attr('d', function(d) { 
+              return "M" + d.join('L') + "Z"; 
+            })
+            .datum(function(d, i) { return d.point; })
+            .attr('class', function(d,i) { return "voronoi-" + d.orig_index; })
+            // .style('stroke', '#2074A0')
+            .style('fill', 'none')
+            .style('pointer-events', 'all')
+            .on('mouseover', function(d) { 
+              d3.select(this).style('fill', '#2074A0');
+            }).on('mouseout', function(d) {
+              d3.select(this).style('fill', 'none');
+            });
+        }
+        
         // reorder points to bring highlighted points to the front
         allPoints.sort(function(a, b) {
           if (selector(a)) {
@@ -235,6 +286,10 @@ export default function(dispatch) {
       } else if (!selector) {
         allPoints.classed('hidden', false);
         allPoints.sort(function(a,b) { return d3.ascending(a.orig_index, b.orig_index); });
+        
+        if (doVoronoi) {
+          selection.selectAll('g.voronoi').selectAll('path').remove();
+        }
       }
       
       // this lags the webpage too much... why?
@@ -448,5 +503,16 @@ export default function(dispatch) {
     return scatterplot;
   }
   
-  return scatterplot;
+  /**
+   * Tells the scatterplot to generate a voronoi based on the highlighted points (helpful for binding hover events to)
+   * @default false (no voronoi will be generated when points are highlighted)
+   * @param {boolean} [newVoronoi] - Whether or not to update a voronoi diagram based on highlighted points
+   */
+  scatterplot.doVoronoi = function(newVoronoi) {
+    if (!arguments.length) return doVoronoi;
+    doVoronoi = newVoronoi;
+    return scatterplot;
+  }
+  
+  return d3.rebind(scatterplot, localDispatch, 'on');
 };

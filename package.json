@@ -24,11 +24,14 @@
     "test": "faucet `find test -name '*-test.js'`",
     "prepublish": "npm run test && uglifyjs build/d3-twodim.js -c -m -o build/d3-twodim.min.js && rm -f build/d3-twodim.zip && zip -j build/d3-twodim.zip -- LICENSE README.md build/d3-twodim.js build/d3-twodim.min.js"
   },
+  "dependencies": {
+    "d3": "~3.5.17"
+  },
   "devDependencies": {
     "faucet": "0.0",
     "rollup": "0.20.5",
     "tape": "4",
     "uglify-js": "2",
-    "d3": "3.5.16"
+    "d3": "~3.5.17"
   }
 }

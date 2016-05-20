@@ -1,4 +1,5 @@
 var tape = require("tape");
+global.d3 = require("d3");  // TODO: hack to inject d3 into the global namespace, because I'm apparently doing something wrong
 var scatterplot = require("../");
 
 tape("Scatterplot has the expected defaults", function(test) {
