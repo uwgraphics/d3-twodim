@@ -104,28 +104,25 @@ export default function(dispatch) {
       yLabel.text(function(d) { return d; });
       yLabel.exit().remove();
       
-      
       // put the brush above the points to allow hover events; see 
       //   <http://wrobstory.github.io/2013/11/D3-brush-and-tooltip.html>
       //   and <http://bl.ocks.org/wrobstory/7612013> ..., but still have
       //   issues: <http://bl.ocks.org/yelper/d38ddf461a0175ebd927946d15140947>
+      // RESOLVED: <http://stackoverflow.com/questions/37354411/>
       // create the brush group if it doesn't exist and is requested by `doBrush`
-      var brushGroup = g.selectAll('g.brush')
-        .data([0]);
-
-      // create the brush if it should exist        
-      brushGroup.enter().append('g')
-        .attr('class', 'brush')
-      brushGroup.call(brush);
-
-      // if the brush is to be removed, force no selected indices
-      var brushDirty = false;          
-      brushGroup.exit()
-        .each(function() { 
-          brushDirty = true;
-          g.selectAll('circle.hidden').classed('hidden', false); 
-        })
-        .remove();        
+      var brushDirty = false;
+      if (doBrush) {
+        // this will have no effect if brush elements are already in place
+        g.call(brush);
+      } else {
+        // remove all traces of the brush and deactivate events
+        brushDirty = true;
+        g.style('pointer-events', null)
+          .style('-webkit-tap-highlight-color', null);
+        g.selectAll('.background, .extent, .resize').remove();
+        g.on('mousedown.brush', null)
+          .on('touchstart.brush', null);
+      }
       
       // create a group for the circles if it doesn't yet exist  
       g.selectAll('g.circles')
@@ -145,32 +142,22 @@ export default function(dispatch) {
         .style('opacity', 1)
         .on('mouseover', localDispatch.mouseover)
         .on('mouseout', localDispatch.mouseout)
-        .on('mousedown', function() {
+        .on('mousedown', function(d) {
           // if a brush is started over a point, hand it off to the brush
+          // HACK from <http://stackoverflow.com/questions/37354411/>
           if (doBrush) {
-            // var brushNode = g.select(".brush").node() 
-            var bubbleEvent = new Event('mousedown');
-            bubbleEvent.pageX = d3.event.pageX;
-            bubbleEvent.clientX = d3.event.clientX;
-            bubbleEvent.pageY = d3.event.pageY;
-            bubbleEvent.clientY = d3.event.clientY;
-            // brushNode.dispatchEvent(bubbleEvent);
+            var e = brush.extent();
+            var m = d3.mouse(g.node());
+            var p = [x1.invert(m[0]), y1.invert(m[1])];
             
-            // figure out where to send the event to
-            var pos = d3.mouse(this);
-            var b = d3.select('.brush .extent').node().getBBox();
-            
-            // test if within bounds of brush extent:
-            if (pos[0] < b.x - 3 || pos[1] < b.y - 3 || 
-              pos[0] > b.x + b.width + 3 || 
-              pos[1] > b.y + b.height + 3) {
-                
-              // send the mouse event to outside the bounds
-              // d3.select('.brush .background')
-              //   .node().dispatchEvent(bubbleEvent);
-              brush.event();
+            if (brush.empty() || e[0][0] > xValue(d) || xValue(d) > e[1][0] ||
+              e[0][1] > yValue(d) || yValue(d) > e[1][1])
+            {
+               brush.extent([p,p]);
+              //  brush.event(d3.select('.brush'));
             } else {
-              console.log("inside bounds!")
+              d3.select(this).classed('extent', true);
+              // brush.event(d3.select('.brush'));
             }
           }
         });
@@ -208,15 +195,13 @@ export default function(dispatch) {
         
       function brushmove(p) {
         var e = brush.extent();
-        var indices = [];
-        
         g.selectAll("circle").classed("hidden", function(d, i) {
           if (e[0][0] > xValue(d) || xValue(d) > e[1][0] || e[0][1] > yValue(d) || yValue(d) > e[1][1])
             return true;
             
-          indices.push(i);
           return false; 
         });
+        g.selectAll('circle').classed('extent', false);
         
         dispatch.highlight(function(d) { 
           return !(e[0][0] > xValue(d) || xValue(d) > e[1][0] || e[0][1] > yValue(d) || yValue(d) > e[1][1]);

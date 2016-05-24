@@ -50,7 +50,8 @@
         <div class="dropdown-x">X dimension: </div>
         <div class="dropdown-y">Y dimension: </div>
         <div class="dropdown-authors">Authors: </div>
-        <button id="swapMulti">Swap Multi</button>
+        <button id="swapMulti">Swap Multi</button><br />
+        <a href="#" id="removeBrush">Add/Remove Brush</a>
     </div>
     <script type="text/javascript" src="//d3js.org/d3.v3.js"></script>
     <script type="text/javascript" src="../build/d3-twodim.js"></script>
@@ -150,6 +151,12 @@
             d3.select(".dropdown-authors").call(multiselect, 'authors');
             isMulti = !isMulti;
         })
+    });
+    
+    document.getElementById("removeBrush").addEventListener("click", function() {
+       scatterplot.doBrush(!scatterplot.doBrush());
+       d3.select("#d3canvas").selectAll(".singleplot, .singleplot2")
+         .call(scatterplot); 
     });
     </script>
 </body>
