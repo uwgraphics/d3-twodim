@@ -37,14 +37,27 @@
             opacity: 0.3;
         }
         
-        .extent {
+        rect.extent {
             fill: #000;
             fill-opacity: 0.125;
             stroke: #ddd;
         }
+        
+        div.tooltip {
+            position: absolute;
+            text-align: center;
+            width: 100px;
+            padding: 2px;
+            font: 12px sans-serif;
+            background: lightsteelblue;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
+    <div class="tooltip" style="opacity: 0;"></div>
     <svg id="d3canvas" version="1.1" baseProfile="full" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="dataPoints">
         <div class="dropdown-x">X dimension: </div>
@@ -56,6 +69,8 @@
     <script type="text/javascript" src="//d3js.org/d3.v3.js"></script>
     <script type="text/javascript" src="../build/d3-twodim.js"></script>
     <script type="text/javascript">    
+        
+    var tooltip = d3.select('div.tooltip');    
     
     var twoDFactory = new d3_twodim.twoDimFactory();
     var objectlist = twoDFactory.createComponent({type: 'objectlist'})
@@ -66,17 +81,42 @@
         .width(290)
         .height(250)
         .doBrush(true)
-        .x(function(d) { return d['Anger']; })
-        .y(function(d) { return d['Reassure']; })
-        .labels(["Anger", "Reassure"]);
+        .doVoronoi(true)
+        .fields(["Anger", "Reassure"])
+        .on('mouseover', function(d, ptPos) {
+            // console.log(d.But);
+            tooltip.transition()
+                .duration(200)
+                .style('opacity', 0.9);
+            tooltip.html(d['author'] + ": " + d['title'] + " (" + d['genre'] + ")")
+                .style('left', (ptPos.left + 7) + "px")
+                .style('top', (ptPos.top + 7) + "px");
+        })
+        .on('mouseout', function(d) {
+            tooltip.transition()
+                .duration(500)
+                .style('opacity', 0); 
+        });
         
     var test = twoDFactory.createComponent({type: 'scatterplot'})
         .width(400)
         .height(250)
         .doBrush(true)
-        .x(function(d) { return d['Positivity']; })
-        .y(function(d) { return d['Negativity']; })
-        .labels(["Positivity", "Negativity"]);
+        .fields(["Positivity", "Negativity"])
+        .on('mouseover', function(d, ptPos) {
+            // console.log(d.But);
+            tooltip.transition()
+                .duration(200)
+                .style('opacity', 0.9);
+            tooltip.html(d['author'] + ": " + d['title'] + " (" + d['genre'] + ")")
+                .style('left', (ptPos.left + 7) + "px")
+                .style('top', (ptPos.top + 7) + "px");
+        })
+        .on('mouseout', function(d) {
+            tooltip.transition()
+                .duration(500)
+                .style('opacity', 0); 
+        });
         
     var dropdownX = twoDFactory.createComponent({type: 'dropdown'})
         .mapFunction("dims")

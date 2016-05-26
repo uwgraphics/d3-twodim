@@ -8,6 +8,7 @@ export default function(dispatch) {
   var height = 1;
   var xValue = function(d) { return +d[0]; };
   var yValue = function(d) { return +d[1]; };
+  var scale = { x: undefined, y: undefined };
   var name = ["", ""];
   
   var grpValue = null;
@@ -19,6 +20,7 @@ export default function(dispatch) {
   
   var doBrush = false;
   var doVoronoi = false;
+  var brush = undefined;
   var voronoi = undefined;
   
   var duration = 500;
@@ -27,29 +29,30 @@ export default function(dispatch) {
     console.log("called scatterplot.redraw()");
     selection.each(function(data, i) {
       var g = d3.select(this);
-      var xd = d3.extent(data, function(e) { return +xValue(e); });
-      var yd = d3.extent(data, function(e) { return +yValue(e); });
-            
+          
+      // set the discovered groups
       foundGroups = grpValue == null ? ["undefined"] : d3.set(data.map(function(e) { return grpValue(e); })).values();
       colorScale = colorScale || d3.scale.category10();
       colorScale.domain(foundGroups);
       console.log("found %d groups", foundGroups.length);
       dispatch.groupUpdate(foundGroups, colorScale);
       
-      var x1 = d3.scale.linear()
-        .domain(xd)
-        .range([0, width]);
-        
-      var y1 = d3.scale.linear()
-        .domain(yd)
-        .range([height, 0]);
+      // set the axes' domain
+      var xd = d3.extent(data, function(e) { return +xValue(e); });
+      var yd = d3.extent(data, function(e) { return +yValue(e); });
+      scale.x = d3.scale.linear()
+        .domain(xd).range([0, width]);
+      scale.y = d3.scale.linear()
+        .domain(yd).range([height, 0]);
       
-      var brush = d3.svg.brush()
-        .x(x1)
-        .y(y1)
+      // construct a brush object for this selection 
+      // (TODO / BUG: one brush for multiple graphs?)
+      brush = d3.svg.brush()
+        .x(scale.x)
+        .y(scale.y)
         .on("brush", brushmove)
         .on("brushend", brushend);
-        
+      
       // draw axes first so points can go over the axes
       var xaxis = g.selectAll('g.xaxis')
         .data([xd]);
@@ -59,13 +62,13 @@ export default function(dispatch) {
         .append('g')
           .attr('class', 'xaxis axis')
           .attr('transform', 'translate(0, ' + height + ')')
-          .call(d3.svg.axis().orient("bottom").scale(x1));
+          .call(d3.svg.axis().orient("bottom").scale(scale.x));
           
       // update axis if x-bounds changed
       xaxis.transition()
         .duration(duration)
         .attr('transform', 'translate(0, ' + height + ')')
-        .call(d3.svg.axis().orient("bottom").scale(x1));
+        .call(d3.svg.axis().orient("bottom").scale(scale.x));
         
       var xLabel = xaxis.selectAll('text.alabel')
         .data([name[0]]);
@@ -85,12 +88,12 @@ export default function(dispatch) {
       yaxis.enter()
         .append('g')
           .attr('class', 'yaxis axis')
-          .call(d3.svg.axis().orient("left").scale(y1));
+          .call(d3.svg.axis().orient("left").scale(scale.y));
           
       // update axis if y-bounds changed
       yaxis.transition()
         .duration(duration)
-        .call(d3.svg.axis().orient("left").scale(y1));
+        .call(d3.svg.axis().orient("left").scale(scale.y));
         
       var yLabel = yaxis.selectAll('text.alabel')
         .data([name[1]]);
@@ -135,37 +138,39 @@ export default function(dispatch) {
         
       points.enter().append('circle')
         .attr("class", "point")
+        .attr('id', function(d) { return "circle-" + d.orig_index; })
         .attr('r', ptSize)
-        .attr('cx', function(e) { return x1(xValue(e)); })
-        .attr('cy', function(e) { return y1(yValue(e)); })
+        .attr('cx', function(e) { return scale.x(xValue(e)); })
+        .attr('cy', function(e) { return scale.y(yValue(e)); })
         .style('fill', grpValue ? function(d) { return colorScale(grpValue(d)); } : colorScale('undefined'))
         .style('opacity', 1)
-        .on('mouseover', localDispatch.mouseover)
-        .on('mouseout', localDispatch.mouseout)
+        .on('mouseover', doVoronoi ? null : function(d) {
+          var ptPos = this.getBoundingClientRect();
+          localDispatch.mouseover(d, ptPos);
+        })
+        .on('mouseout',  doVoronoi ? null : localDispatch.mouseout)
         .on('mousedown', function(d) {
           // if a brush is started over a point, hand it off to the brush
           // HACK from <http://stackoverflow.com/questions/37354411/>
           if (doBrush) {
             var e = brush.extent();
             var m = d3.mouse(g.node());
-            var p = [x1.invert(m[0]), y1.invert(m[1])];
+            var p = [scale.x.invert(m[0]), scale.y.invert(m[1])];
             
             if (brush.empty() || e[0][0] > xValue(d) || xValue(d) > e[1][0] ||
               e[0][1] > yValue(d) || yValue(d) > e[1][1])
             {
                brush.extent([p,p]);
-              //  brush.event(d3.select('.brush'));
             } else {
               d3.select(this).classed('extent', true);
-              // brush.event(d3.select('.brush'));
             }
           }
         });
         
       points.transition()
         .duration(duration)
-        .attr('cx', function(e) { return x1(xValue(e)); })
-        .attr('cy', function(e) { return y1(yValue(e)); })
+        .attr('cx', function(e) { return scale.x(xValue(e)); })
+        .attr('cy', function(e) { return scale.y(yValue(e)); })
         .style('fill', grpValue ? function(d) { return colorScale(grpValue(d)); } : colorScale('undefined'))
         .style('opacity', 1);
         
@@ -183,15 +188,16 @@ export default function(dispatch) {
         .data(doVoronoi ? [0] : []);
       voronoiGroup.enter().append('g')
         .attr('class', 'voronoi');
-      voronoiGroup.exit().remove();
+      voronoiGroup.exit()
+        .each(localDispatch.mouseout)
+        .remove();
       
       if (doVoronoi) {
         voronoi = d3.geom.voronoi()
-          .x(function(d) { return x1(xValue(d)); })
-          .y(function(d) { return y1(yValue(d)); })
+          .x(function(d) { return scale.x(xValue(d)); })
+          .y(function(d) { return scale.y(yValue(d)); })
           .clipExtent([[0, 0], [width, height]]);
       }
-        
         
       function brushmove(p) {
         var e = brush.extent();
@@ -201,7 +207,9 @@ export default function(dispatch) {
             
           return false; 
         });
+        
         g.selectAll('circle').classed('extent', false);
+        g.selectAll('.voronoi path').classed('extent', false);
         
         dispatch.highlight(function(d) { 
           return !(e[0][0] > xValue(d) || xValue(d) > e[1][0] || e[0][1] > yValue(d) || yValue(d) > e[1][1]);
@@ -210,6 +218,18 @@ export default function(dispatch) {
       
       function brushend() {
         if (brush.empty()) {
+          // destroy any remaining voronoi shapes
+          g.selectAll('.voronoi').selectAll('path').remove();
+          
+          // destroys any lingering extent rectangles 
+          // (can happen when passing mousemoves through voronoi layer)
+          g.selectAll('.extent').attr('width', 0).attr('height', 0);
+          
+          // call any linked mouseout events to finalize brush removals
+          // (e.g. hides tooltips when brush disappears and no highlighted points remain)
+          localDispatch.mouseout();
+          
+          // removes all highlights for all linked components 
           g.selectAll('.hidden').classed('hidden', false);
           dispatch.highlight(false);
         }
@@ -247,10 +267,30 @@ export default function(dispatch) {
             // .style('stroke', '#2074A0')
             .style('fill', 'none')
             .style('pointer-events', 'all')
-            .on('mouseover', function(d) { 
-              d3.select(this).style('fill', '#2074A0');
+            .on('mouseover', function(d) {
+              var pt = d3.select("#circle-" + d.orig_index);
+              var ptPos = pt.node().getBoundingClientRect();
+              // d3.select(this).style('fill', '#2074A0');
+              localDispatch.mouseover(d, ptPos);
             }).on('mouseout', function(d) {
-              d3.select(this).style('fill', 'none');
+              // d3.select(this).style('fill', 'none');
+              localDispatch.mouseout(d);
+            }).on('mousedown', function(d) {
+              // if a brush is started over a point, hand it off to the brush
+              // HACK from <http://stackoverflow.com/questions/37354411/>
+              if (doBrush) {
+                var e = brush.extent();
+                var m = d3.mouse(selection.node());
+                var p = [scale.x.invert(m[0]), scale.y.invert(m[1])];
+                
+                if (brush.empty() || e[0][0] > p[0] || p[0] > e[1][0] ||
+                  e[0][1] > p[1] || p[1] > e[1][1])
+                {
+                  brush.extent([p,p]);
+                } else {
+                  d3.select(this).classed('extent', true);
+                }
+              }
             });
         }
         
