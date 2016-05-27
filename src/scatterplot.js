@@ -1,5 +1,6 @@
 export default function(dispatch) {
   // 'global' declarations go here
+  var rendering = 'svg';
   var scatterData = [];
   var scatterDataKey = undefined;
   var localDispatch = d3.dispatch('mouseover', 'mouseout');
@@ -25,12 +26,9 @@ export default function(dispatch) {
   
   var duration = 500;
   
-  function redraw(selection) {
-    console.log("called scatterplot.redraw()");
-    selection.each(function(data, i) {
-      var g = d3.select(this);
-          
-      // set the discovered groups
+  // the shared scales/groups needed by all rendering mechanisms
+  function setGlobals(data) {
+    // set the discovered groups
       foundGroups = grpValue == null ? ["undefined"] : d3.set(data.map(function(e) { return grpValue(e); })).values();
       colorScale = colorScale || d3.scale.category10();
       colorScale.domain(foundGroups);
@@ -44,6 +42,15 @@ export default function(dispatch) {
         .domain(xd).range([0, width]);
       scale.y = d3.scale.linear()
         .domain(yd).range([height, 0]);
+  };
+  
+  function redrawSVG(selection) {
+    console.log("called scatterplot.redrawSVG()");
+    selection.each(function(data, i) {
+      var g = d3.select(this);
+      
+      // set the scales and determine the groups and their colors
+      setGlobals(data);
       
       // construct a brush object for this selection 
       // (TODO / BUG: one brush for multiple graphs?)
@@ -55,7 +62,7 @@ export default function(dispatch) {
       
       // draw axes first so points can go over the axes
       var xaxis = g.selectAll('g.xaxis')
-        .data([xd]);
+        .data([0]);
       
       // add axis if it doesn't exist  
       xaxis.enter()
@@ -82,7 +89,7 @@ export default function(dispatch) {
       xLabel.exit().remove();
         
       var yaxis = g.selectAll('g.yaxis')
-        .data([yd]);
+        .data([0]);
         
       // add axis if it doesn't exist
       yaxis.enter()
@@ -237,13 +244,91 @@ export default function(dispatch) {
     });
   };
   
+  function redrawCanvas(selection) {
+    console.log("called scatterplot.redrawCanvas()");
+    selection.each(function(data, i) {
+      // only support points so far
+      var canvas = d3.select(this);
+      setGlobals(data);
+      
+      if (!canvas.node().getContext){
+        console.error("Your browser does not support the 2D canvas element; reverting to SVG");
+        rendering = 'svg';
+        redrawSVG();
+      }
+      
+      data = data.concat(data).concat(data).concat(data).concat(data);
+      
+      var ctx = canvas.node().getContext('2d');
+      ctx.clearRect(0, 0, width, height);
+      
+      // /* draw the points sequentially */
+      // for (var i = 0; i < data.length * 100; i++) {
+      //   var d = data[i % data.length];
+      //   var x = scale.x(xValue(d)), y = scale.y(yValue(d));
+        
+      //   ctx.fillStyle = colorScale(grpValue(d));
+      //   ctx.beginPath();
+      //   ctx.moveTo(x, y);
+      //   ctx.arc(x, y, ptSize, 0, 2 * Math.PI);
+      //   ctx.fill();
+      // };
+      
+      // draw the points 
+      renderPoints(data, ctx);
+      
+    });
+    
+    // inspired by <http://bl.ocks.org/syntagmatic/2420080>
+    function renderPoints(points, ctx, rate) {
+      var n = points.length;
+      var i = 0;
+      rate = rate || 250;
+      ctx.clearRect(0, 0, width, height);
+      function render() {
+        var max = Math.min(i + rate, n);
+        points.slice(i, max).forEach(function(d) { 
+          renderPoint(
+            ctx, scale.x(xValue(d)), 
+            scale.y(yValue(d)), colorScale(grpValue(d)));
+        });
+        i = max;
+      };
+      
+      (function animloop() {
+        if (i >= n) return;
+        requestAnimationFrame(animloop);
+        render();
+      })();
+    }
+    
+    function renderPoint(ctx, x, y, color) {
+      ctx.beginPath();
+      ctx.fillStyle = color;
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, ptSize, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+  };
+  
   function scatterplot(selection, name) {
     selection.each(function(d, i) {
       var g = d3.select(this);
       g.data([scatterData], scatterDataKey);
     });
     
-    redraw(selection);
+    switch (rendering) {
+      case 'svg':
+        redrawSVG(selection);
+        break;
+      case 'canvas':
+        redrawCanvas(selection);
+        break;
+      case 'webgl': 
+        throw "webgl scatterplot not implemented";
+        redrawWebGL(selection);
+        break;
+    }
     
     dispatch.on('highlight.' + name, function(selector) {
       // console.log("scatterplot dispatch called for " + name + "!");
@@ -316,11 +401,6 @@ export default function(dispatch) {
           selection.selectAll('g.voronoi').selectAll('path').remove();
         }
       }
-      
-      // this lags the webpage too much... why?
-      // ^^ because it contains transitions that don't actually transition! 
-      // d3.timer goes nuts trying to schedule nothing
-      // redraw(selection);
     });
   }
   
@@ -344,6 +424,17 @@ export default function(dispatch) {
     
     return scatterplot;
   };
+  
+  /**
+   * Gets or sets the type of rendering mechanism.  One of "svg", "canvas", or "webgl".  Subsequent calls of `scatterplot` on a selection will populate the selections with the given rendering type
+   */
+  scatterplot.renderType = function(renderType) {
+    if (!arguments.length) return rendering;
+    if (['svg', 'canvas', 'webgl'].indexOf(renderType) == -1)
+      throw "Expected value of 'svg', 'canvas', or 'webgl' to scatterplot.renderType";
+    rendering = renderType;
+    return scatterplot;
+  }
   
   /**
    * The width of the constructed scatterplot.  The caller is responsible for maintaining sensible margins.

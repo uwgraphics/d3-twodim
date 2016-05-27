@@ -18,6 +18,7 @@ var twoDimFactory = function() {
  * Creates a d3-twodim component with the given name
  * @param {Object} options - The anonymous object with the required properties
  * @param {string} options.type - The name of the component to instantiate (currently, one of the set of {dropdown, legend, objectlist, scatterplot})
+ * @param {string} options.renderType - The type of rendering for the requested component, usually one of 'webgl', 'canvas', or 'svg' (default).
  * @returns {Object} The requested object, instantiated
  */
 twoDimFactory.prototype.createComponent = function createTwoDimComponent(options) { 
@@ -36,6 +37,11 @@ twoDimFactory.prototype.createComponent = function createTwoDimComponent(options
     }
     
     var newObject = new parentClass(this.dispatch);
+    
+    if (options.hasOwnProperty('render')) {
+        newObject.renderType(options.render);
+    }
+    
     this.createdComponents.push(newObject); 
     return newObject;
 };
