@@ -248,9 +248,14 @@ export default function(dispatch) {
     console.log("called scatterplot.redrawCanvas()");
     selection.each(function(data, i) {
       // only support points so far
-      var canvas = d3.select(this);
+      var container = d3.select(this);
       setGlobals(data);
+
+      if (container.select('canvas').empty() && container.select('svg'))
+        initializeCanvasSVGLayers(container);
       
+      var canvas = container.select('canvas');
+      var svg = container.select('svg');
       if (!canvas.node().getContext){
         console.error("Your browser does not support the 2D canvas element; reverting to SVG");
         rendering = 'svg';
@@ -273,11 +278,101 @@ export default function(dispatch) {
       //   ctx.arc(x, y, ptSize, 0, 2 * Math.PI);
       //   ctx.fill();
       // };
+
+      // initialize the SVG layer to capture mouse interaction; show brushes, axes, etc.
+      var svg = svg.select('g.container');
+      // brush = d3.svg.brush()
+      //   .x(scale.x)
+      //   .y(scale.y)
+      //   .on('brush', brushmove)
+      //   .on('brushend', brushend);
+
+      var xaxis = svg.selectAll('g.xaxis')
+        .data([0]);
+
+      xaxis.enter()
+        .append('g')
+          .attr('class', 'xaxis axis')
+          .attr('transform', 'translate(0, ' + height + ')')
+          .call(d3.svg.axis().orient('bottom').scale(scale.x));
+
+      xaxis.transition()
+        .duration(duration)
+        .attr('transform', 'translate(0,'+height+')')
+        .call(d3.svg.axis().orient('bottom').scale(scale.x));
+
+      var xLabel = xaxis.selectAll('text.alabel')
+        .data([name[0]]);
+
+      xLabel.enter().append('text')
+        .attr('class', 'alabel')
+        .attr('transform', 'translate(' + (width / 2) + ',20)')
+        .attr('dy', '1em')
+        .style('text-anchor', 'middle');
+      xLabel.text(function(d) { return d; });
+      xLabel.exit().remove();
+
+      var yaxis = svg.selectAll('g.yaxis')
+        .data([0]);
+
+      yaxis.enter()
+        .append('g')
+          .attr('class', 'yaxis axis')
+          .call(d3.svg.axis().orient('left').scale(scale.y));
+
+      yaxis.transition()
+        .duration(duration)
+        .call(d3.svg.axis().orient('left').scale(scale.y));
+
+      var yLabel = yaxis.selectAll('text.alabel')
+        .data([name[1]]);
+      yLabel.enter()
+        .append('text')
+          .attr('class', 'alabel')
+          .attr('transform', 'rotate(-90)')
+          .attr('y', -25)
+          .attr('x', -(height / 2))
+          .attr('dy', '-1em')
+          .style('text-anchor', 'middle')
+      yLabel.text(function(d) { return d; });
+      yLabel.exit().remove();
+      
       
       // draw the points 
       renderPoints(data, ctx);
       
     });
+
+    // only called when a canvas or SVG element is not found 
+    // within the container element
+    function initializeCanvasSVGLayers(container) {
+      // remove all of this items svg/canvas elements
+      container.select("svg, canvas").remove();
+
+      // amount of space needed to draw items on the left margin 
+      var leftMargin = 50;
+      var bottomMargin = 50;
+
+      // create a canvas node
+      container.style('position', 'relative')
+        .style('padding-bottom', bottomMargin + 'px');
+      container.append('canvas')
+        .attr('width', width)
+        .attr('height', height)
+        .style('margin-left', leftMargin + "px");
+
+      var svg = container.append('svg')
+        .attr('width', width + leftMargin)
+        .attr('height', height + bottomMargin)
+        .style('zIndex', 10)
+        .style('position', 'absolute')
+        .style('top', 0)
+        .style('left', 0);
+
+      svg.append('g')
+        .attr('class', 'container')
+        .attr('transform', 'translate(' + leftMargin + ',0)');
+    }
     
     // inspired by <http://bl.ocks.org/syntagmatic/2420080>
     function renderPoints(points, ctx, rate) {
@@ -333,73 +428,83 @@ export default function(dispatch) {
     dispatch.on('highlight.' + name, function(selector) {
       // console.log("scatterplot dispatch called for " + name + "!");
       
-      var allPoints = selection.selectAll('circle');
-      if (typeof selector === "function") {
-        allPoints.classed('hidden', true);
-        allPoints.filter(selector).classed('hidden', false);
-        
-        // generate relevant voronoi
-        if (doVoronoi) {
-          selection.selectAll('g.voronoi').selectAll('path').remove();
-          selection.selectAll('g.voronoi').selectAll('path')
-            .data(voronoi(scatterData.filter(selector)))
-            .enter().append('path')
-            .attr('d', function(d) { 
-              return "M" + d.join('L') + "Z"; 
-            })
-            .datum(function(d, i) { return d.point; })
-            .attr('class', function(d,i) { return "voronoi-" + d.orig_index; })
-            // .style('stroke', '#2074A0')
-            .style('fill', 'none')
-            .style('pointer-events', 'all')
-            .on('mouseover', function(d) {
-              var pt = d3.select("#circle-" + d.orig_index);
-              var ptPos = pt.node().getBoundingClientRect();
-              // d3.select(this).style('fill', '#2074A0');
-              localDispatch.mouseover(d, ptPos);
-            }).on('mouseout', function(d) {
-              // d3.select(this).style('fill', 'none');
-              localDispatch.mouseout(d);
-            }).on('mousedown', function(d) {
-              // if a brush is started over a point, hand it off to the brush
-              // HACK from <http://stackoverflow.com/questions/37354411/>
-              if (doBrush) {
-                var e = brush.extent();
-                var m = d3.mouse(selection.node());
-                var p = [scale.x.invert(m[0]), scale.y.invert(m[1])];
-                
-                if (brush.empty() || e[0][0] > p[0] || p[0] > e[1][0] ||
-                  e[0][1] > p[1] || p[1] > e[1][1])
-                {
-                  brush.extent([p,p]);
-                } else {
-                  d3.select(this).classed('extent', true);
-                }
+
+      switch (rendering) {
+        case 'svg': 
+          var allPoints = selection.selectAll('circle');
+          if (typeof selector === "function") {
+            allPoints.classed('hidden', true);
+            allPoints.filter(selector).classed('hidden', false);
+            
+            // generate relevant voronoi
+            if (doVoronoi) {
+              selection.selectAll('g.voronoi').selectAll('path').remove();
+              selection.selectAll('g.voronoi').selectAll('path')
+                .data(voronoi(scatterData.filter(selector)))
+                .enter().append('path')
+                .attr('d', function(d) { 
+                  return "M" + d.join('L') + "Z"; 
+                })
+                .datum(function(d, i) { return d.point; })
+                .attr('class', function(d,i) { return "voronoi-" + d.orig_index; })
+                // .style('stroke', '#2074A0')
+                .style('fill', 'none')
+                .style('pointer-events', 'all')
+                .on('mouseover', function(d) {
+                  var pt = d3.select("#circle-" + d.orig_index);
+                  var ptPos = pt.node().getBoundingClientRect();
+                  // d3.select(this).style('fill', '#2074A0');
+                  localDispatch.mouseover(d, ptPos);
+                }).on('mouseout', function(d) {
+                  // d3.select(this).style('fill', 'none');
+                  localDispatch.mouseout(d);
+                }).on('mousedown', function(d) {
+                  // if a brush is started over a point, hand it off to the brush
+                  // HACK from <http://stackoverflow.com/questions/37354411/>
+                  if (doBrush) {
+                    var e = brush.extent();
+                    var m = d3.mouse(selection.node());
+                    var p = [scale.x.invert(m[0]), scale.y.invert(m[1])];
+                    
+                    if (brush.empty() || e[0][0] > p[0] || p[0] > e[1][0] ||
+                      e[0][1] > p[1] || p[1] > e[1][1])
+                    {
+                      brush.extent([p,p]);
+                    } else {
+                      d3.select(this).classed('extent', true);
+                    }
+                  }
+                });
+            }
+            
+            // reorder points to bring highlighted points to the front
+            allPoints.sort(function(a, b) {
+              if (selector(a)) {
+                if (selector(b))
+                  return 0;
+                else
+                  return 1;
+              } else {
+                if (selector(b))
+                  return -1;
+                else
+                  return 0;
               }
             });
-        }
-        
-        // reorder points to bring highlighted points to the front
-        allPoints.sort(function(a, b) {
-          if (selector(a)) {
-            if (selector(b))
-              return 0;
-            else
-              return 1;
-          } else {
-            if (selector(b))
-              return -1;
-            else
-              return 0;
+          } else if (!selector) {
+            allPoints.classed('hidden', false);
+            allPoints.sort(function(a,b) { return d3.ascending(a.orig_index, b.orig_index); });
+            
+            if (doVoronoi) {
+              selection.selectAll('g.voronoi').selectAll('path').remove();
+            }
           }
-        });
-      } else if (!selector) {
-        allPoints.classed('hidden', false);
-        allPoints.sort(function(a,b) { return d3.ascending(a.orig_index, b.orig_index); });
-        
-        if (doVoronoi) {
-          selection.selectAll('g.voronoi').selectAll('path').remove();
-        }
+          break;
+        case 'canvas':
+          console.log("called highlight on %s", name)
+          break;
+        default:
+          throw "highlight not implemented for " + rendering;
       }
     });
   }
