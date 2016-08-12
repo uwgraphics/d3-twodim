@@ -11,6 +11,9 @@ export default function(dispatch) {
   var yValue = function(d) { return +d[1]; };
   var scale = { x: undefined, y: undefined };
   var name = ["", ""];
+
+  var availableFields = [];
+  var areFieldsSet = false;
   
   var grpValue = null;
   var foundGroups = ["undefined"];
@@ -518,6 +521,22 @@ export default function(dispatch) {
   scatterplot.data = function(newData, key) {
     if (!arguments.length) return scatterData;
     scatterData = newData;
+
+    // TODO: test if there are <2 fields available, very likely that the code following will fail in those cases
+
+    // if datums are objects, collect the available field names
+    if (!Array.isArray(newData[0])) {
+      for (var field in newData[0]) {
+        if (newData[0].hasOwnProperty(field)) {
+          availableFields.push(field);
+        }
+      }
+      
+      // if no field has been selected to view, select the first two fields
+      if (!areFieldsSet) {
+        scatterplot.fields(availableFields.slice(0, 2));
+      }
+    }
     
     // add original index value (this could be randomized)
     scatterData.forEach(function(d, i) {
@@ -628,6 +647,8 @@ export default function(dispatch) {
     if (!arguments.length) return name[0];
     name[0] = xField;
     xValue = function(d) { return d[xField]; };
+    areFieldsSet = true;
+
     return scatterplot; 
   }
   
@@ -640,6 +661,8 @@ export default function(dispatch) {
     if (!arguments.length) return name[1];
     name[1] = yField;
     yValue = function(d) { return d[yField]; };
+    areFieldsSet = true;
+
     return scatterplot;
   }
   
@@ -651,9 +674,12 @@ export default function(dispatch) {
   scatterplot.fields = function(fields) {
     if (!arguments.length) return name;
     if (fields.length != 2) throw "Expected an array of length two for scatterplot.fields: [xField, yField]";
+    
     name = fields;
     xValue = function(d) { return d[name[0]]; };
     yValue = function(d) { return d[name[1]]; };
+    areFieldsSet = true;
+    
     return scatterplot;
   }
   
