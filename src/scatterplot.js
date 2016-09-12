@@ -1,6 +1,7 @@
 export default function(dispatch) {
   // 'global' declarations go here
   var rendering = 'svg';
+  var selectionName = undefined;
   var scatterData = [];
   var scatterDataKey = undefined;
   var localDispatch = d3.dispatch('mouseover', 'mouseout');
@@ -20,12 +21,15 @@ export default function(dispatch) {
   
   var ptSize = 3;
   var colorScale = null;
-  var ptIdentifier = function(d, i) { return i; };
+  var ptIdentifier = function(d, i) { return d.orig_index; };
   
   var doBrush = false;
   var doVoronoi = false;
+  var doZoom = false;
+
   var brush = undefined;
   var voronoi = undefined;
+  var zoomBehavior = undefined;
   
   var duration = 500;
   
@@ -46,6 +50,61 @@ export default function(dispatch) {
       scale.y = d3.scale.linear()
         .domain(yd).range([height, 0]);
   };
+
+  // shared code to generate voronois for the given points
+  function generateVoronoi(selection, points) {
+    console.log("drawing voronoi for %d points", points.length);
+    selection.each(function() {
+      var g = d3.select(this);
+      var voronois = g.select('g.voronoi')
+        .selectAll('path').data(voronoi(points), function(d) { 
+          return d.point ? d.point.orig_index : d.orig_index; 
+        });
+      // voronois.remove();
+      voronois.enter().append('path')
+        .attr('d', function(d) {
+          return "M" + d.join('L') + "Z";
+        })
+        .datum(function(d) { return d.point; })
+        .attr('class', function(d) { return "voronoi-" + d.orig_index; })
+        .style('stroke', '#2074A0')
+        .style('fill', 'none')
+        .style('pointer-events', 'all')
+        .on('mouseover', function(d) { 
+          var pt = d3.select("#circle-" + d.orig_index);
+          var ptPos = pt.node().getBoundingClientRect();
+          d3.select(this).style('fill', '#2074A0');
+          localDispatch.mouseover(d, ptPos);
+        }).on('mouseout', function(d) {
+          d3.select(this).style('fill', 'none');
+          localDispatch.mouseout(d);
+        }).on('mousedown', function(d) { 
+          // if a brush is started over a point, hand it off to the brush
+          // HACK from <http://stackoverflow.com/questions/37354411/>
+          if (doBrush) {
+            var e = brush.extent();
+            var m = d3.mouse(selection.node());
+            var p = [scale.x.invert(m[0]), scale.y.invert(m[1])];
+            
+            if (brush.empty() || e[0][0] > p[0] || p[0] > e[1][0] || e[0][1] > p[1] || p[1] > e[1][1]) {
+              brush.extent([p,p]);
+            } else {
+              d3.select(this).classed('extent', true);
+            }
+          }
+        });
+
+      // update current voronois?
+      voronois.each(function(d) {
+        if (Array.isArray(d)) {
+          d3.select(this).attr('d', "M" + d.join('L') + "Z")
+            .datum(function(d) { return d.point; });
+        }
+      });
+
+      voronois.exit().remove();
+    });
+  }
   
   function redrawSVG(selection) {
     console.log("called scatterplot.redrawSVG()");
@@ -62,6 +121,31 @@ export default function(dispatch) {
         .y(scale.y)
         .on("brush", brushmove)
         .on("brushend", brushend);
+
+      zoomBehavior = d3.behavior.zoom()
+        .x(scale.x)
+        .y(scale.y)
+        .scaleExtent([0, 500])
+        .on("zoom", zoom)
+        .on("zoomstart", localDispatch.mouseout)
+        .on("zoomend", function(d) { 
+          if (doVoronoi) {            
+            // if no points are hidden, don't draw voronois
+            if (g.selectAll('circle.hidden').size() !== 0) {
+              // just select the points that are visible in the chartArea
+              var activePoints = chartArea.selectAll('circle:not(.hidden)')
+                .data()
+                .filter(function(d) {
+                  var xd = scale.x.domain(), yd = scale.y.domain();
+                  return !(xd[0] > xValue(d) || xValue(d) > xd[1] ||
+                  yd[0] > yValue(d) || yValue(d) > yd[1]);
+                });
+
+              // update the voronois
+              g.call(generateVoronoi, activePoints);
+            }
+          } 
+        });
       
       // draw axes first so points can go over the axes
       var xaxis = g.selectAll('g.xaxis')
@@ -73,12 +157,6 @@ export default function(dispatch) {
           .attr('class', 'xaxis axis')
           .attr('transform', 'translate(0, ' + height + ')')
           .call(d3.svg.axis().orient("bottom").scale(scale.x));
-          
-      // update axis if x-bounds changed
-      xaxis.transition()
-        .duration(duration)
-        .attr('transform', 'translate(0, ' + height + ')')
-        .call(d3.svg.axis().orient("bottom").scale(scale.x));
         
       var xLabel = xaxis.selectAll('text.alabel')
         .data([name[0]]);
@@ -100,11 +178,6 @@ export default function(dispatch) {
           .attr('class', 'yaxis axis')
           .call(d3.svg.axis().orient("left").scale(scale.y));
           
-      // update axis if y-bounds changed
-      yaxis.transition()
-        .duration(duration)
-        .call(d3.svg.axis().orient("left").scale(scale.y));
-        
       var yLabel = yaxis.selectAll('text.alabel')
         .data([name[1]]);
       yLabel.enter().append('text')
@@ -116,7 +189,33 @@ export default function(dispatch) {
         .style('text-anchor', 'middle');
       yLabel.text(function(d) { return d; });
       yLabel.exit().remove();
+
+      // create a group for the chart area, and clip anything that falls outside this
+      // * this group lets us zoom/pan outside of objects in the graphs
+      g.selectAll('g.chartArea')
+        .data([1]).enter().append('g')
+          .attr('class', 'chartArea')
+          .style('pointer-events', 'all');
+      var chartArea = g.select('g.chartArea');
+
+      // set up a clipping mask for the chart area (specific to this selection)
+      var thisNode = g.node();
+      while ((thisNode = thisNode.parentNode).tagName != 'svg');
+      d3.select(thisNode).selectAll('defs').data([1]).enter()
+        .append('defs');
+      d3.select(thisNode).select('defs')
+        .selectAll('clipPath').data([selectionName]).enter()
+          .append('clipPath')
+            .attr('id', function(d) { return d; })
+            .append('rect')
+              .attr({x: 0, y: 0, width: width, height: height});
+     chartArea.attr('clip-path', 'url(#' + selectionName + ')');
       
+      // create a group for the circles if it doesn't yet exist  
+      chartArea.selectAll('g.circles')
+        .data([1]).enter().append('g')
+          .attr('class', 'circles');
+
       // put the brush above the points to allow hover events; see 
       //   <http://wrobstory.github.io/2013/11/D3-brush-and-tooltip.html>
       //   and <http://bl.ocks.org/wrobstory/7612013> ..., but still have
@@ -125,88 +224,119 @@ export default function(dispatch) {
       // create the brush group if it doesn't exist and is requested by `doBrush`
       var brushDirty = false;
       if (doBrush) {
+        // remove the zoom-only background element
+        chartArea.selectAll('rect.backgroundDrag').remove();
+
         // this will have no effect if brush elements are already in place
-        g.call(brush);
+        chartArea.call(brush);
       } else {
         // remove all traces of the brush and deactivate events
         brushDirty = true;
-        g.style('pointer-events', null)
+        chartArea.style('pointer-events', null)
           .style('-webkit-tap-highlight-color', null);
-        g.selectAll('.background, .extent, .resize').remove();
-        g.on('mousedown.brush', null)
+        chartArea.selectAll('.background, .extent, .resize').remove();
+        chartArea.on('mousedown.brush', null)
           .on('touchstart.brush', null);
+
+        // if zoom AND NOT brush, 
+        // make a background element to capture clicks for zooming/panning
+        if (doZoom) {
+          chartArea.selectAll('rect.backgroundDrag')
+            .data([1]).enter().append('rect')
+              .attr('class', 'backgroundDrag')
+              .attr({x: 0, y: 0, height: height, width: width})
+              .style('visibility', 'hidden')
+              .style('pointer-events', 'all');
+        }
       }
-      
-      // create a group for the circles if it doesn't yet exist  
-      g.selectAll('g.circles')
-        .data([1]).enter().append('g')
-          .attr('class', 'circles');
-          
-      // bind points to circles
-      var points = g.select('g.circles').selectAll('circle.point')
-        .data(data, ptIdentifier);
-        
-      points.enter().append('circle')
-        .attr("class", "point")
-        .attr('id', function(d) { return "circle-" + d.orig_index; })
-        .attr('r', ptSize)
-        .attr('cx', function(e) { return scale.x(xValue(e)); })
-        .attr('cy', function(e) { return scale.y(yValue(e)); })
-        .style('fill', grpValue ? function(d) { return colorScale(grpValue(d)); } : colorScale('undefined'))
-        .style('opacity', 1)
-        .on('mouseover', doVoronoi ? null : function(d) {
-          var ptPos = this.getBoundingClientRect();
-          localDispatch.mouseover(d, ptPos);
-        })
-        .on('mouseout',  doVoronoi ? null : localDispatch.mouseout)
-        .on('mousedown', function(d) {
-          // if a brush is started over a point, hand it off to the brush
-          // HACK from <http://stackoverflow.com/questions/37354411/>
-          if (doBrush) {
-            var e = brush.extent();
-            var m = d3.mouse(g.node());
-            var p = [scale.x.invert(m[0]), scale.y.invert(m[1])];
-            
-            if (brush.empty() || e[0][0] > xValue(d) || xValue(d) > e[1][0] ||
-              e[0][1] > yValue(d) || yValue(d) > e[1][1])
-            {
-               brush.extent([p,p]);
-            } else {
-              d3.select(this).classed('extent', true);
-            }
-          }
-        });
-        
-      points.transition()
-        .duration(duration)
-        .attr('cx', function(e) { return scale.x(xValue(e)); })
-        .attr('cy', function(e) { return scale.y(yValue(e)); })
-        .style('fill', grpValue ? function(d) { return colorScale(grpValue(d)); } : colorScale('undefined'))
-        .style('opacity', 1);
-        
-      points.exit().transition()
-        .duration(duration)
-        .style('opacity', 1e-6)
-        .remove();
         
       // hack to clear selected points post-hoc after removing brush element 
       // (to get around inifinite-loop problem if called from within the exit() selection)
       if (brushDirty) dispatch.highlight(false);
       
       // deal with setting up the voronoi group
-      var voronoiGroup = g.selectAll('g.voronoi')
+      var voronoiGroup = chartArea.selectAll('g.voronoi')
         .data(doVoronoi ? [0] : []);
       voronoiGroup.enter().append('g')
         .attr('class', 'voronoi');
       voronoiGroup.exit()
         .each(localDispatch.mouseout)
         .remove();
-      
-      if (doVoronoi) {
-        voronoi = d3.geom.voronoi()
-          .x(function(d) { return scale.x(xValue(d)); })
-          .y(function(d) { return scale.y(yValue(d)); })
-          .clipExtent([[0, 0], [width, height]]);
+
+      if (doZoom) {
+        chartArea.call(zoomBehavior);
+      }
+
+      // finally, draw the points
+      updateGraph();
+
+      function updateGraph(skipTransition) {
+        skipTransition = !!skipTransition;
+
+        // bind points to circles
+        var points = chartArea.select('g.circles').selectAll('circle.point')
+          .data(data, ptIdentifier);
+          
+        points.enter().append('circle')
+          .attr("class", "point")
+          .attr('id', function(d) { return "circle-" + d.orig_index; })
+          .attr('r', ptSize)
+          .attr('cx', function(e) { return scale.x(xValue(e)); })
+          .attr('cy', function(e) { return scale.y(yValue(e)); })
+          .style('fill', grpValue ? function(d) { return colorScale(grpValue(d)); } : colorScale('undefined'))
+          .style('opacity', 1)
+          .on('mouseover', doVoronoi ? null : function(d) {
+            var ptPos = this.getBoundingClientRect();
+            localDispatch.mouseover(d, ptPos);
+          })
+          .on('mouseout',  doVoronoi ? null : localDispatch.mouseout)
+          .on('mousedown', function(d) {
+            // if a brush is started over a point, hand it off to the brush
+            // HACK from <http://stackoverflow.com/questions/37354411/>
+            if (doBrush) {
+              var e = brush.extent();
+              var m = d3.mouse(g.node());
+              var p = [scale.x.invert(m[0]), scale.y.invert(m[1])];
+              
+              if (brush.empty() || e[0][0] > xValue(d) || xValue(d) > e[1][0] ||
+                e[0][1] > yValue(d) || yValue(d) > e[1][1])
+              {
+                brush.extent([p,p]);
+              } else {
+                d3.select(this).classed('extent', true);
+              }
+            }
+          });
+          
+        // if transition was requested, add it into the selection
+        var updatePoints = points;
+        if (!skipTransition) updatePoints = points.transition().duration(duration);
+        updatePoints
+          .attr('cx', function(e) { return scale.x(xValue(e)); })
+          .attr('cy', function(e) { return scale.y(yValue(e)); })
+          .style('fill', grpValue ? function(d) { return colorScale(grpValue(d)); } : colorScale('undefined'))
+          .style('opacity', 1);
+          
+        points.exit().transition()
+          .duration(duration)
+          .style('opacity', 1e-6)
+          .remove();
+
+        // update axis if bounds changed
+        var xaxisGrp = d3.select('.xaxis');
+        if (!skipTransition) xaxisGrp = xaxisGrp.transition().duration(duration); 
+        xaxisGrp.call(d3.svg.axis().orient("bottom").scale(scale.x));
+          
+        var yaxisGrp = d3.select('.yaxis');
+        if (!skipTransition) yaxisGrp = yaxisGrp.transition().duration(duration); 
+        yaxisGrp.call(d3.svg.axis().orient("left").scale(scale.y));
+
+        if (doVoronoi) {
+          voronoi = d3.geom.voronoi()
+            .x(function(d) { return scale.x(xValue(d)); })
+            .y(function(d) { return scale.y(yValue(d)); })
+            .clipExtent([[0, 0], [width, height]]);
+        }
       }
         
       function brushmove(p) {
@@ -244,6 +374,10 @@ export default function(dispatch) {
           dispatch.highlight(false);
         }
       }
+
+      function zoom() {
+        updateGraph(true);
+      };
     });
   };
   
@@ -414,6 +548,8 @@ export default function(dispatch) {
       var g = d3.select(this);
       g.data([scatterData], scatterDataKey);
     });
+
+    selectionName = name;
     
     switch (rendering) {
       case 'svg':
@@ -441,43 +577,7 @@ export default function(dispatch) {
             
             // generate relevant voronoi
             if (doVoronoi) {
-              selection.selectAll('g.voronoi').selectAll('path').remove();
-              selection.selectAll('g.voronoi').selectAll('path')
-                .data(voronoi(scatterData.filter(selector)))
-                .enter().append('path')
-                .attr('d', function(d) { 
-                  return "M" + d.join('L') + "Z"; 
-                })
-                .datum(function(d, i) { return d.point; })
-                .attr('class', function(d,i) { return "voronoi-" + d.orig_index; })
-                // .style('stroke', '#2074A0')
-                .style('fill', 'none')
-                .style('pointer-events', 'all')
-                .on('mouseover', function(d) {
-                  var pt = d3.select("#circle-" + d.orig_index);
-                  var ptPos = pt.node().getBoundingClientRect();
-                  // d3.select(this).style('fill', '#2074A0');
-                  localDispatch.mouseover(d, ptPos);
-                }).on('mouseout', function(d) {
-                  // d3.select(this).style('fill', 'none');
-                  localDispatch.mouseout(d);
-                }).on('mousedown', function(d) {
-                  // if a brush is started over a point, hand it off to the brush
-                  // HACK from <http://stackoverflow.com/questions/37354411/>
-                  if (doBrush) {
-                    var e = brush.extent();
-                    var m = d3.mouse(selection.node());
-                    var p = [scale.x.invert(m[0]), scale.y.invert(m[1])];
-                    
-                    if (brush.empty() || e[0][0] > p[0] || p[0] > e[1][0] ||
-                      e[0][1] > p[1] || p[1] > e[1][1])
-                    {
-                      brush.extent([p,p]);
-                    } else {
-                      d3.select(this).classed('extent', true);
-                    }
-                  }
-                });
+              selection.call(generateVoronoi, scatterData.filter(selector));
             }
             
             // reorder points to bring highlighted points to the front
@@ -742,6 +842,7 @@ export default function(dispatch) {
    * Tells the scatterplot to support a D3 brush component.  
    * Points not selected by the brush will have the `.hidden` CSS class selector added.
    * @default false (no brush will be added to the scatterplot)
+   * @todo Currently unable to enable both zoom and brush concurrently (mouse overloading)
    * @param {boolean} [newBrush] Whether or not to add a brush to the scatterplot.
    */
   scatterplot.doBrush = function(newBrush) {
@@ -758,6 +859,18 @@ export default function(dispatch) {
   scatterplot.doVoronoi = function(newVoronoi) {
     if (!arguments.length) return doVoronoi;
     doVoronoi = newVoronoi;
+    return scatterplot;
+  }
+
+  /**
+   * Tells the scatterplot to support zooming and panning the scatterplot
+   * @default false (viewer will be unable to zoom and pan the scatterplot)
+   * @todo Currently unable to enable both zoom and brush concurrently (mouse overloading)
+   * @param {boolean} [newZoom] - Whether or not to enable zooming and panning in the scatterplot
+   */
+  scatterplot.doZoom = function(newZoom) {
+    if (!arguments.length) return doZoom;
+    doZoom = newZoom;
     return scatterplot;
   }
   

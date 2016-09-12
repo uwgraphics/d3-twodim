@@ -31,7 +31,6 @@
     "faucet": "0.0",
     "rollup": "0.20.5",
     "tape": "4",
-    "uglify-js": "2",
-    "d3": "~3.5.17"
+    "uglify-js": "2"
   }
 }
