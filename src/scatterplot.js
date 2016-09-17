@@ -1,3 +1,5 @@
+import scatterplot_webgl from "./scatterplot_webgl";
+
 export default function(dispatch) {
   // 'global' declarations go here
   var rendering = 'svg';
@@ -32,6 +34,9 @@ export default function(dispatch) {
   var zoomBehavior = undefined;
   
   var duration = 500;
+
+  var isDirty = true;
+  var extScatterObj = undefined;
   
   // the shared scales/groups needed by all rendering mechanisms
   function setGlobals(data) {
@@ -67,16 +72,16 @@ export default function(dispatch) {
         })
         .datum(function(d) { return d.point; })
         .attr('class', function(d) { return "voronoi-" + d.orig_index; })
-        .style('stroke', '#2074A0')
+        // .style('stroke', '#2074A0')
         .style('fill', 'none')
         .style('pointer-events', 'all')
         .on('mouseover', function(d) { 
           var pt = d3.select("#circle-" + d.orig_index);
           var ptPos = pt.node().getBoundingClientRect();
-          d3.select(this).style('fill', '#2074A0');
+          // d3.select(this).style('fill', '#2074A0');
           localDispatch.mouseover(d, ptPos);
         }).on('mouseout', function(d) {
-          d3.select(this).style('fill', 'none');
+          // d3.select(this).style('fill', 'none');
           localDispatch.mouseout(d);
         }).on('mousedown', function(d) { 
           // if a brush is started over a point, hand it off to the brush
@@ -91,6 +96,8 @@ export default function(dispatch) {
             } else {
               d3.select(this).classed('extent', true);
             }
+          } else {
+            localDispatch.mousedown(d);
           }
         });
 
@@ -204,7 +211,7 @@ export default function(dispatch) {
       d3.select(thisNode).selectAll('defs').data([1]).enter()
         .append('defs');
       d3.select(thisNode).select('defs')
-        .selectAll('clipPath').data([selectionName]).enter()
+        .selectAll('clipPath').data([selectionName], function(d) { return d }).enter()
           .append('clipPath')
             .attr('id', function(d) { return d; })
             .append('rect')
@@ -305,6 +312,8 @@ export default function(dispatch) {
               } else {
                 d3.select(this).classed('extent', true);
               }
+            } else {
+              localDispatch.mousedown(d);
             }
           });
           
@@ -479,37 +488,6 @@ export default function(dispatch) {
       renderPoints(data, ctx);
       
     });
-
-    // only called when a canvas or SVG element is not found 
-    // within the container element
-    function initializeCanvasSVGLayers(container) {
-      // remove all of this items svg/canvas elements
-      container.select("svg, canvas").remove();
-
-      // amount of space needed to draw items on the left margin 
-      var leftMargin = 50;
-      var bottomMargin = 50;
-
-      // create a canvas node
-      container.style('position', 'relative')
-        .style('padding-bottom', bottomMargin + 'px');
-      container.append('canvas')
-        .attr('width', width)
-        .attr('height', height)
-        .style('margin-left', leftMargin + "px");
-
-      var svg = container.append('svg')
-        .attr('width', width + leftMargin)
-        .attr('height', height + bottomMargin)
-        .style('zIndex', 10)
-        .style('position', 'absolute')
-        .style('top', 0)
-        .style('left', 0);
-
-      svg.append('g')
-        .attr('class', 'container')
-        .attr('transform', 'translate(' + leftMargin + ',0)');
-    }
     
     // inspired by <http://bl.ocks.org/syntagmatic/2420080>
     function renderPoints(points, ctx, rate) {
@@ -542,6 +520,66 @@ export default function(dispatch) {
       ctx.fill();
     }
   };
+
+  // only called when a canvas or SVG element is not found 
+  // within the container element
+  function initializeCanvasSVGLayers(container) {
+    // remove all of this items svg/canvas elements
+    container.select("svg, canvas").remove();
+
+    // amount of space needed to draw items on the left margin 
+    var leftMargin = 50;
+    var bottomMargin = 50;
+
+    // create a canvas node
+    container.style('position', 'relative')
+      .style('padding-bottom', bottomMargin + 'px');
+    container.append('canvas')
+      .attr('width', width)
+      .attr('height', height)
+      .style('margin-left', leftMargin + "px");
+
+    var svg = container.append('svg')
+      .attr('width', width + leftMargin)
+      .attr('height', height + bottomMargin)
+      .style('zIndex', 10)
+      .style('position', 'absolute')
+      .style('top', 0)
+      .style('left', 0);
+
+    svg.append('g')
+      .attr('class', 'container')
+      .attr('transform', 'translate(' + leftMargin + ',0)');
+  }
+
+  function redrawWebGL(selection) {
+    console.log("called scatterplot.redrawWebGL()");
+    selection.each(function(data, i) {
+      var container = d3.select(this);
+      setGlobals(data);
+
+      if (container.select('canvas').empty() && container.select('svg'))
+        initializeCanvasSVGLayers(container);
+
+      // create the external object to handle rendering, if it doesn't exist'
+      if (!extScatterObj) {
+        extScatterObj = new scatterplot_webgl(selection, isDirty);
+      }
+        
+      // explicitly update data and call a render
+      setGlobals(data);
+      updateWebGLdata(data);
+      selection.call(extScatterObj.setColorScale(colorScale), isDirty);
+      isDirty = false;
+    });
+  }
+
+  function updateWebGLdata(data) {
+    if (extScatterObj)
+      extScatterObj.setData(data, xValue, yValue, grpValue, foundGroups, scale);
+    else
+      console.warn("tried to update webgl data before initializing canvas");
+  }
   
   function scatterplot(selection, name) {
     selection.each(function(d, i) {
@@ -559,15 +597,11 @@ export default function(dispatch) {
         redrawCanvas(selection);
         break;
       case 'webgl': 
-        throw "webgl scatterplot not implemented";
         redrawWebGL(selection);
         break;
     }
     
     dispatch.on('highlight.' + name, function(selector) {
-      // console.log("scatterplot dispatch called for " + name + "!");
-      
-
       switch (rendering) {
         case 'svg': 
           var allPoints = selection.selectAll('circle');
@@ -690,6 +724,7 @@ export default function(dispatch) {
   scatterplot.x = function(xVal) {
     if (!arguments.length) return xValue;
     xValue = xVal;
+    isDirty = true;
     return scatterplot;
   }
   
@@ -701,6 +736,7 @@ export default function(dispatch) {
   scatterplot.y = function(yVal) {
     if (!arguments.length) return yValue;
     yValue = yVal;
+    isDirty = true;
     return scatterplot;
   }
   
@@ -746,8 +782,9 @@ export default function(dispatch) {
   scatterplot.xField = function(xField) {
     if (!arguments.length) return name[0];
     name[0] = xField;
-    xValue = function(d) { return d[xField]; };
+    xValue = function(d) { return +d[xField]; };
     areFieldsSet = true;
+    isDirty = true;
 
     return scatterplot; 
   }
@@ -760,8 +797,9 @@ export default function(dispatch) {
   scatterplot.yField = function(yField) {
     if (!arguments.length) return name[1];
     name[1] = yField;
-    yValue = function(d) { return d[yField]; };
+    yValue = function(d) { return +d[yField]; };
     areFieldsSet = true;
+    isDirty = true;
 
     return scatterplot;
   }
@@ -776,9 +814,10 @@ export default function(dispatch) {
     if (fields.length != 2) throw "Expected an array of length two for scatterplot.fields: [xField, yField]";
     
     name = fields;
-    xValue = function(d) { return d[name[0]]; };
-    yValue = function(d) { return d[name[1]]; };
+    xValue = function(d) { return +d[name[0]]; };
+    yValue = function(d) { return +d[name[1]]; };
     areFieldsSet = true;
+    isDirty = true;
     
     return scatterplot;
   }
@@ -824,17 +863,20 @@ export default function(dispatch) {
   scatterplot.groupColumn = function(grpVal) {
     if (!arguments.length) return grpVal;
     grpValue = grpVal;
+    isDirty = true;
     return scatterplot;
   }
   
   /**
-   * The color scale to map to the grouping column. The domain of the colorscale will be set at draw time from the current data.
+   * The d3.ordinal color scale to map to the grouping column. The domain of the colorscale will 
+   * be set at draw time from the current data.
    * @default Uses the `d3.scale.category10() color scale.
    * @param {d3.scale.ordinal(): string} [newScale] - The new `d3.scale.ordinal()` scale to use.
    */
   scatterplot.colorScale = function(newScale) {
     if (!arguments.length) return colorScale;
     colorScale = newScale;
+    if (extScatterObj) extScatterObj.setColorScale(colorScale);
     return scatterplot;
   }
   
