@@ -78,8 +78,8 @@
              return d['author'] + ": " + d['title'] + " (" + d['genre'] + ")"; 
         });
     var scatterplot = twoDFactory.createComponent({type: 'scatterplot'})
-        .width(290)
-        .height(250)
+        .width(400)
+        .height(400)
         .doBrush(true)
         .doVoronoi(true)
         .fields(["Anger", "Reassure"])
@@ -100,11 +100,11 @@
         
     var test = twoDFactory.createComponent({type: 'scatterplot'})
         .width(400)
-        .height(250)
-        .doBrush(true)
+        .height(400)
+        .doVoronoi(true)
+        .doZoom(true)
         .fields(["Positivity", "Negativity"])
         .on('mouseover', function(d, ptPos) {
-            // console.log(d.But);
             tooltip.transition()
                 .duration(200)
                 .style('opacity', 0.9);
@@ -164,7 +164,7 @@
         
         var singlePlot = d3.select("#d3canvas")
             .attr('width', 1050)
-            .attr('height', 300)
+            .attr('height', 450)
           .append('g')
             .attr('class', 'singleplot')
             .attr('transform', "translate(50, 10)")
@@ -173,7 +173,7 @@
         d3.select("#d3canvas")
           .append('g')
             .attr('class', 'singleplot2')
-            .attr('transform', 'translate(400, 10)')
+            .attr('transform', 'translate(510, 10)')
             .call(test, ".singleplot2");
 
         var dimXDrop = d3.selectAll("#dataPoints .dropdown-x").call(dropdownX, 'ydim');

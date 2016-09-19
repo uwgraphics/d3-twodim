@@ -6,7 +6,7 @@ export default function(dispatch) {
   var selectionName = undefined;
   var scatterData = [];
   var scatterDataKey = undefined;
-  var localDispatch = d3.dispatch('mouseover', 'mouseout');
+  var localDispatch = d3.dispatch('mouseover', 'mouseout', 'mousedown');
   
   var width = 1;
   var height = 1;
@@ -41,7 +41,9 @@ export default function(dispatch) {
   // the shared scales/groups needed by all rendering mechanisms
   function setGlobals(data) {
     // set the discovered groups
-      foundGroups = grpValue == null ? ["undefined"] : d3.set(data.map(function(e) { return grpValue(e); })).values();
+      foundGroups = grpValue == null ? 
+        ["undefined"] : 
+        d3.set(data.map(function(e) { return grpValue(e); })).values();
       colorScale = colorScale || d3.scale.category10();
       colorScale.domain(foundGroups);
       console.log("found %d groups", foundGroups.length);
@@ -58,7 +60,6 @@ export default function(dispatch) {
 
   // shared code to generate voronois for the given points
   function generateVoronoi(selection, points) {
-    console.log("drawing voronoi for %d points", points.length);
     selection.each(function() {
       var g = d3.select(this);
       var voronois = g.select('g.voronoi')
@@ -79,10 +80,12 @@ export default function(dispatch) {
           var pt = d3.select("#circle-" + d.orig_index);
           var ptPos = pt.node().getBoundingClientRect();
           // d3.select(this).style('fill', '#2074A0');
-          localDispatch.mouseover(d, ptPos);
+          if (localDispatch.hasOwnProperty('mouseover'))
+            localDispatch.mouseover(d, ptPos);
         }).on('mouseout', function(d) {
           // d3.select(this).style('fill', 'none');
-          localDispatch.mouseout(d);
+          if (localDispatch.hasOwnProperty('mouseout'))
+            localDispatch.mouseout(d);
         }).on('mousedown', function(d) { 
           // if a brush is started over a point, hand it off to the brush
           // HACK from <http://stackoverflow.com/questions/37354411/>
@@ -97,7 +100,8 @@ export default function(dispatch) {
               d3.select(this).classed('extent', true);
             }
           } else {
-            localDispatch.mousedown(d);
+            if (localDispatch.hasOwnProperty('mousedown'))
+              localDispatch.mousedown(d);
           }
         });
 
@@ -134,7 +138,10 @@ export default function(dispatch) {
         .y(scale.y)
         .scaleExtent([0, 500])
         .on("zoom", zoom)
-        .on("zoomstart", localDispatch.mouseout)
+        .on("zoomstart", function(d) {
+          if (localDispatch.hasOwnProperty('mouseout')) 
+            localDispatch.mouseout(d);
+        })
         .on("zoomend", function(d) { 
           if (doVoronoi) {            
             // if no points are hidden, don't draw voronois
@@ -267,7 +274,10 @@ export default function(dispatch) {
       voronoiGroup.enter().append('g')
         .attr('class', 'voronoi');
       voronoiGroup.exit()
-        .each(localDispatch.mouseout)
+        .each(function(d) {
+          if (localDispatch.hasOwnProperty('mouseout'))
+            localDispatch.mouseout(d);
+        })
         .remove();
 
       if (doZoom) {
@@ -294,9 +304,13 @@ export default function(dispatch) {
           .style('opacity', 1)
           .on('mouseover', doVoronoi ? null : function(d) {
             var ptPos = this.getBoundingClientRect();
-            localDispatch.mouseover(d, ptPos);
+            if (localDispatch.hasOwnProperty('mouseover'))
+              localDispatch.mouseover(d, ptPos);
           })
-          .on('mouseout',  doVoronoi ? null : localDispatch.mouseout)
+          .on('mouseout', doVoronoi ? null : function(d) {
+            if (localDispatch.hasOwnProperty('mouseout'))
+              localDispatch.mouseout(d);
+          })
           .on('mousedown', function(d) {
             // if a brush is started over a point, hand it off to the brush
             // HACK from <http://stackoverflow.com/questions/37354411/>
@@ -313,7 +327,8 @@ export default function(dispatch) {
                 d3.select(this).classed('extent', true);
               }
             } else {
-              localDispatch.mousedown(d);
+              if (localDispatch.hasOwnProperty('mousedown'))
+                localDispatch.mousedown(d);
             }
           });
           
@@ -376,7 +391,8 @@ export default function(dispatch) {
           
           // call any linked mouseout events to finalize brush removals
           // (e.g. hides tooltips when brush disappears and no highlighted points remain)
-          localDispatch.mouseout();
+          if (localDispatch.hasOwnProperty('mouseout'))
+            localDispatch.mouseout();
           
           // removes all highlights for all linked components 
           g.selectAll('.hidden').classed('hidden', false);
@@ -401,7 +417,6 @@ export default function(dispatch) {
         initializeCanvasSVGLayers(container);
       
       var canvas = container.select('canvas');
-      var svg = container.select('svg');
       if (!canvas.node().getContext){
         console.error("Your browser does not support the 2D canvas element; reverting to SVG");
         rendering = 'svg';
@@ -409,84 +424,14 @@ export default function(dispatch) {
       }
       
       data = data.concat(data).concat(data).concat(data).concat(data);
-      
+
+      // draw the points after clearing the canvas 
       var ctx = canvas.node().getContext('2d');
       ctx.clearRect(0, 0, width, height);
-      
-      // /* draw the points sequentially */
-      // for (var i = 0; i < data.length * 100; i++) {
-      //   var d = data[i % data.length];
-      //   var x = scale.x(xValue(d)), y = scale.y(yValue(d));
-        
-      //   ctx.fillStyle = colorScale(grpValue(d));
-      //   ctx.beginPath();
-      //   ctx.moveTo(x, y);
-      //   ctx.arc(x, y, ptSize, 0, 2 * Math.PI);
-      //   ctx.fill();
-      // };
-
-      // initialize the SVG layer to capture mouse interaction; show brushes, axes, etc.
-      var svg = svg.select('g.container');
-      // brush = d3.svg.brush()
-      //   .x(scale.x)
-      //   .y(scale.y)
-      //   .on('brush', brushmove)
-      //   .on('brushend', brushend);
-
-      var xaxis = svg.selectAll('g.xaxis')
-        .data([0]);
-
-      xaxis.enter()
-        .append('g')
-          .attr('class', 'xaxis axis')
-          .attr('transform', 'translate(0, ' + height + ')')
-          .call(d3.svg.axis().orient('bottom').scale(scale.x));
-
-      xaxis.transition()
-        .duration(duration)
-        .attr('transform', 'translate(0,'+height+')')
-        .call(d3.svg.axis().orient('bottom').scale(scale.x));
-
-      var xLabel = xaxis.selectAll('text.alabel')
-        .data([name[0]]);
-
-      xLabel.enter().append('text')
-        .attr('class', 'alabel')
-        .attr('transform', 'translate(' + (width / 2) + ',20)')
-        .attr('dy', '1em')
-        .style('text-anchor', 'middle');
-      xLabel.text(function(d) { return d; });
-      xLabel.exit().remove();
-
-      var yaxis = svg.selectAll('g.yaxis')
-        .data([0]);
-
-      yaxis.enter()
-        .append('g')
-          .attr('class', 'yaxis axis')
-          .call(d3.svg.axis().orient('left').scale(scale.y));
-
-      yaxis.transition()
-        .duration(duration)
-        .call(d3.svg.axis().orient('left').scale(scale.y));
-
-      var yLabel = yaxis.selectAll('text.alabel')
-        .data([name[1]]);
-      yLabel.enter()
-        .append('text')
-          .attr('class', 'alabel')
-          .attr('transform', 'rotate(-90)')
-          .attr('y', -25)
-          .attr('x', -(height / 2))
-          .attr('dy', '-1em')
-          .style('text-anchor', 'middle')
-      yLabel.text(function(d) { return d; });
-      yLabel.exit().remove();
-      
-      
-      // draw the points 
       renderPoints(data, ctx);
       
+      // update the SVG overlay
+      updateSVGOverlay(container);
     });
     
     // inspired by <http://bl.ocks.org/syntagmatic/2420080>
@@ -552,6 +497,67 @@ export default function(dispatch) {
       .attr('transform', 'translate(' + leftMargin + ',0)');
   }
 
+  // initialize the SVG layer to capture mouse interaction; show brushes, axes, etc.
+  function updateSVGOverlay(container) {
+    var svg = container.select('svg');
+    svg = svg.select('g.container');
+    // brush = d3.svg.brush()
+    //   .x(scale.x)
+    //   .y(scale.y)
+    //   .on('brush', brushmove)
+    //   .on('brushend', brushend);
+
+    var xaxis = svg.selectAll('g.xaxis')
+      .data([0]);
+
+    xaxis.enter()
+      .append('g')
+        .attr('class', 'xaxis axis')
+        .attr('transform', 'translate(0, ' + height + ')')
+        .call(d3.svg.axis().orient('bottom').scale(scale.x));
+
+    xaxis.transition()
+      .duration(duration)
+      .attr('transform', 'translate(0,'+height+')')
+      .call(d3.svg.axis().orient('bottom').scale(scale.x));
+
+    var xLabel = xaxis.selectAll('text.alabel')
+      .data([name[0]]);
+
+    xLabel.enter().append('text')
+      .attr('class', 'alabel')
+      .attr('transform', 'translate(' + (width / 2) + ',20)')
+      .attr('dy', '1em')
+      .style('text-anchor', 'middle');
+    xLabel.text(function(d) { return d; });
+    xLabel.exit().remove();
+
+    var yaxis = svg.selectAll('g.yaxis')
+      .data([0]);
+
+    yaxis.enter()
+      .append('g')
+        .attr('class', 'yaxis axis')
+        .call(d3.svg.axis().orient('left').scale(scale.y));
+
+    yaxis.transition()
+      .duration(duration)
+      .call(d3.svg.axis().orient('left').scale(scale.y));
+
+    var yLabel = yaxis.selectAll('text.alabel')
+      .data([name[1]]);
+    yLabel.enter()
+      .append('text')
+        .attr('class', 'alabel')
+        .attr('transform', 'rotate(-90)')
+        .attr('y', -25)
+        .attr('x', -(height / 2))
+        .attr('dy', '-1em')
+        .style('text-anchor', 'middle')
+    yLabel.text(function(d) { return d; });
+    yLabel.exit().remove();
+  }
+
   function redrawWebGL(selection) {
     console.log("called scatterplot.redrawWebGL()");
     selection.each(function(data, i) {
@@ -561,16 +567,18 @@ export default function(dispatch) {
       if (container.select('canvas').empty() && container.select('svg'))
         initializeCanvasSVGLayers(container);
 
-      // create the external object to handle rendering, if it doesn't exist'
+      // create the external object to handle rendering, if it doesn't exist
       if (!extScatterObj) {
         extScatterObj = new scatterplot_webgl(selection, isDirty);
       }
         
-      // explicitly update data and call a render
-      setGlobals(data);
+      // explicitly update data and call a render on the WebGL helper
       updateWebGLdata(data);
       selection.call(extScatterObj.setColorScale(colorScale), isDirty);
       isDirty = false;
+
+      // update the SVG overlay
+      updateSVGOverlay(container);
     });
   }
 
@@ -636,9 +644,6 @@ export default function(dispatch) {
               selection.selectAll('g.voronoi').selectAll('path').remove();
             }
           }
-          break;
-        case 'canvas':
-          console.log("called highlight on %s", name)
           break;
         default:
           throw "highlight not implemented for " + rendering;
