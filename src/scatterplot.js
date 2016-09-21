@@ -23,7 +23,7 @@ export default function(dispatch) {
   
   var ptSize = 3;
   var colorScale = null;
-  var ptIdentifier = function(d, i) { return d.orig_index; };
+  var ptIdentifier = function(d, i) { return "" + d.orig_index; };
   
   var doBrush = false;
   var doVoronoi = false;
@@ -62,22 +62,26 @@ export default function(dispatch) {
   function generateVoronoi(selection, points) {
     selection.each(function() {
       var g = d3.select(this);
-      var voronois = g.select('g.voronoi')
-        .selectAll('path').data(voronoi(points), function(d) { 
+      
+      // (1) use selectAll() instead of select() to prevent setting data on 
+      //     the selection from the selector
+      // (2) by passing voronoi(points) through a no-op filter(), it removes 
+      //     `undefined` indices returned by voronoi for points that failed 
+      //     to have a cell created 
+      var voronois = g.selectAll('g.voronoi')
+        .selectAll('path')
+        .data(voronoi(points).filter(function() { return true; }), function(d) { 
           return d.point ? d.point.orig_index : d.orig_index; 
         });
-      // voronois.remove();
       voronois.enter().append('path')
-        .attr('d', function(d) {
-          return "M" + d.join('L') + "Z";
-        })
+        .attr('d', function(d) { return "M" + d.join('L') + "Z"; })
         .datum(function(d) { return d.point; })
         .attr('class', function(d) { return "voronoi-" + d.orig_index; })
         // .style('stroke', '#2074A0')
         .style('fill', 'none')
         .style('pointer-events', 'all')
         .on('mouseover', function(d) { 
-          var pt = d3.select("#circle-" + d.orig_index);
+          var pt = g.selectAll("#circle-" + d.orig_index);
           var ptPos = pt.node().getBoundingClientRect();
           // d3.select(this).style('fill', '#2074A0');
           if (localDispatch.hasOwnProperty('mouseover'))
@@ -119,11 +123,11 @@ export default function(dispatch) {
   
   function redrawSVG(selection) {
     console.log("called scatterplot.redrawSVG()");
-    selection.each(function(data, i) {
+    selection.each(function() {
       var g = d3.select(this);
       
       // set the scales and determine the groups and their colors
-      setGlobals(data);
+      setGlobals(scatterData);
       
       // construct a brush object for this selection 
       // (TODO / BUG: one brush for multiple graphs?)
@@ -142,18 +146,19 @@ export default function(dispatch) {
           if (localDispatch.hasOwnProperty('mouseout')) 
             localDispatch.mouseout(d);
         })
-        .on("zoomend", function(d) { 
+        .on("zoomend", function() { 
           if (doVoronoi) {            
             // if no points are hidden, don't draw voronois
             if (g.selectAll('circle.hidden').size() !== 0) {
               // just select the points that are visible in the chartArea
-              var activePoints = chartArea.selectAll('circle:not(.hidden)')
-                .data()
+              var activePoints = chartArea.selectAll('circle.point')
                 .filter(function(d) {
+                  if (d3.select(this).classed('hidden')) return false;
                   var xd = scale.x.domain(), yd = scale.y.domain();
                   return !(xd[0] > xValue(d) || xValue(d) > xd[1] ||
-                  yd[0] > yValue(d) || yValue(d) > yd[1]);
-                });
+                    yd[0] > yValue(d) || yValue(d) > yd[1]);
+                })
+                .data();
 
               // update the voronois
               g.call(generateVoronoi, activePoints);
@@ -290,9 +295,11 @@ export default function(dispatch) {
       function updateGraph(skipTransition) {
         skipTransition = !!skipTransition;
 
+        console.log("updateGraph() called with %d elements", scatterData.length)
+
         // bind points to circles
         var points = chartArea.select('g.circles').selectAll('circle.point')
-          .data(data, ptIdentifier);
+          .data(scatterData, ptIdentifier);
           
         points.enter().append('circle')
           .attr("class", "point")
@@ -347,11 +354,11 @@ export default function(dispatch) {
           .remove();
 
         // update axis if bounds changed
-        var xaxisGrp = d3.select('.xaxis');
+        var xaxisGrp = g.selectAll('.xaxis');
         if (!skipTransition) xaxisGrp = xaxisGrp.transition().duration(duration); 
         xaxisGrp.call(d3.svg.axis().orient("bottom").scale(scale.x));
           
-        var yaxisGrp = d3.select('.yaxis');
+        var yaxisGrp = g.selectAll('.yaxis');
         if (!skipTransition) yaxisGrp = yaxisGrp.transition().duration(duration); 
         yaxisGrp.call(d3.svg.axis().orient("left").scale(scale.y));
 
@@ -401,17 +408,25 @@ export default function(dispatch) {
       }
 
       function zoom() {
-        updateGraph(true);
+        // updateGraph(true);
+        chartArea.selectAll('circle.point')
+          .attr('cx', function(e) { return scale.x(xValue(e)); })
+          .attr('cy', function(e) { return scale.y(yValue(e)); });
+
+        g.selectAll('.xaxis')
+          .call(d3.svg.axis().orient("bottom").scale(scale.x));
+        g.selectAll('.yaxis')
+          .call(d3.svg.axis().orient("left").scale(scale.y));
       };
     });
   };
   
   function redrawCanvas(selection) {
     console.log("called scatterplot.redrawCanvas()");
-    selection.each(function(data, i) {
+    selection.each(function() {
       // only support points so far
       var container = d3.select(this);
-      setGlobals(data);
+      setGlobals(scatterData);
 
       if (container.select('canvas').empty() && container.select('svg'))
         initializeCanvasSVGLayers(container);
@@ -423,12 +438,12 @@ export default function(dispatch) {
         redrawSVG();
       }
       
-      data = data.concat(data).concat(data).concat(data).concat(data);
+      var thisData = scatterData.concat(scatterData).concat(scatterData).concat(scatterData).concat(scatterData);
 
       // draw the points after clearing the canvas 
       var ctx = canvas.node().getContext('2d');
       ctx.clearRect(0, 0, width, height);
-      renderPoints(data, ctx);
+      renderPoints(thisData, ctx);
       
       // update the SVG overlay
       updateSVGOverlay(container);
@@ -560,9 +575,9 @@ export default function(dispatch) {
 
   function redrawWebGL(selection) {
     console.log("called scatterplot.redrawWebGL()");
-    selection.each(function(data, i) {
+    selection.each(function() {
       var container = d3.select(this);
-      setGlobals(data);
+      setGlobals(scatterData);
 
       if (container.select('canvas').empty() && container.select('svg'))
         initializeCanvasSVGLayers(container);
@@ -573,7 +588,7 @@ export default function(dispatch) {
       }
         
       // explicitly update data and call a render on the WebGL helper
-      updateWebGLdata(data);
+      updateWebGLdata(scatterData);
       selection.call(extScatterObj.setColorScale(colorScale), isDirty);
       isDirty = false;
 
@@ -582,19 +597,23 @@ export default function(dispatch) {
     });
   }
 
-  function updateWebGLdata(data) {
+  function updateWebGLdata(thisData) {
     if (extScatterObj)
-      extScatterObj.setData(data, xValue, yValue, grpValue, foundGroups, scale);
+      extScatterObj.setData(thisData, xValue, yValue, grpValue, foundGroups, scale);
     else
       console.warn("tried to update webgl data before initializing canvas");
   }
   
+  /**
+   * Kicks off a render of the scatterplot object on the given selection. Following D3.js convention,
+   * this should be executed on a selection, 
+   * e.g., d3.select('g.scatterplot').call(scatterObj, '.scatterplot'). 
+   * The name argument is required to ensure that highlight dispatches from the factory are routed
+   * to the correct scatterplots.
+   * @param {d3.Selection} selection - The selection in which to instantiate and redraw the scatterplot.
+   * @param {string} name - The name of this selection to namespace factory dispatch methods (this should be unique across all instantiated d3-twoDim components) 
+   */
   function scatterplot(selection, name) {
-    selection.each(function(d, i) {
-      var g = d3.select(this);
-      g.data([scatterData], scatterDataKey);
-    });
-
     selectionName = name;
     
     switch (rendering) {
