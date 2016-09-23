@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Example of d3_twodim.scatterplot()</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    
+    <style type="text/css">        
+        @import 'https://fonts.googleapis.com/css?family=Open+Sans:400,800|Roboto';
+        
+        body {
+          font-family: Roboto, Helvetica;
+          margin: 40px auto;
+          width: 960px;
+        }
+        
+        footer {
+          padding: 2em 0 1em 0;
+          font-size: 12px;
+        }
+        
+        h1 {
+          font-family: "Open Sans";
+          font-size: 96px;
+          margin-top: .3em;
+          margin-bottom: 0;
+        }
+        
+        h2 {
+          font-family: "Open Sans";
+          font-weight: 400;
+          font-size: 28px;
+        }
+        
+        h3 {
+          font-family: "Open Sans";
+          font-weight: 400;
+          font-size: 16px;
+          font-style: italic;
+        }
+        
+        h1 + h2, h2 + h3 {
+          margin-top: 0;
+          margin-bottom: .3em;
+        }
+        
+        p {
+          line-height: 1.5em;
+          width: 640px;
+        }
+        
+    
+        /* d3-twodim specific styles follow */
+        circle.point {
+            fill: steelblue;
+        }
+        
+        .axis text {
+            font: 10px sans-serif;
+        }
+        
+        .axis text.alabel {
+            font-size: 12px;
+        }
+            
+        .axis path,
+        .axis line {
+          fill: none;
+          stroke: #000;
+          shape-rendering: crispEdges; 
+        }
+        
+        .hidden {
+            fill-opacity: 0.2;
+        }
+        
+        .legend .item {
+            cursor: pointer;
+        }
+        
+        .legend .disabled {
+            opacity: 0.3;
+        }
+        
+        rect.extent {
+            fill: #000;
+            fill-opacity: 0.125;
+            stroke: #ddd;
+        }
+        
+        div.tooltip {
+            position: absolute;
+            text-align: center;
+            width: 100px;
+            padding: 2px;
+            font: 12px sans-serif;
+            background: lightsteelblue;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="tooltip" style="opacity: 0;"></div>
+    <h1>d3-twodim</h1>
+    <h2>Two Dimensional Graphics for D3.js</h2>
+    <h3>(currently only for D3 v3)</h3>
+    <p><a href="https://github.com/uwgraphics/d3-twodim"><strong>d3-twodim</strong></a> helps to create two-dimensional representations of data using scatter plots (using SVG, Canvas, or WebGL), and (in the future) techniques such as Splatterplots and subsampled scatterplots. This reusable component uses a factory design pattern to keep d3-twodim components linked to interchange data and object state.</p>
+    <p>This project is under active development. Please feel free to <a href="https://github.com/uwgraphics/d3-twodim/issues">file an issue</a>, open a pull request, or <a href="//twitter.com/yelperalp">contact the author</a> with any feedback. If you use <strong>d3-twodim</strong> in your own project, we would love to hear about it!</p>
+    <p>You can download the <a href="https://github.com/uwgraphics/d3-twodim/releases">latest release</a>, or <a href="https://github.com/uwgraphics/d3-twodim">build the library from source</a> using npm.</p>
+    
+    <h2>A Simple Example</h2>
+    <p>The below example is pulled straight from <a href="https://github.com/uwgraphics/d3-twodim/blob/master/examples/simpleExample.html" target="_blank">examples/simpleExample.html</a> in the main repository.  The graph on the <strong>left</strong> has both a voronoi overlay and brush enabled, while the one on the <strong>right</strong> has both voronoi and zoom/pan enabled.</p>
+    <p>Click on the legend items to select those points.  Change the dropdown values to modify the graphs and highlight particular points.</p>
+
+    <svg id="d3canvas" version="1.1" baseProfile="full" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="dataPoints">
+        <div class="dropdown-x">X dimension: </div>
+        <div class="dropdown-y">Y dimension: </div>
+        <div class="dropdown-authors">Authors: </div>
+    </div>
+    <footer>(c) 2016, <a href="http://cs.wisc.edu/~sarikaya/" target="_blank">Alper Sarikaya</a>, the <a href="//graphics.cs.wisc.edu" target="_blank">UW-Madison Graphics Group</a>, and <a href="https://github.com/uwgraphics/d3-twodim/graphs/contributors" target="_blank">d3-twodim contributors</a>.</footer>
+    <script type="text/javascript" src="//d3js.org/d3.v3.js"></script>
+    <script type="text/javascript" src="d3-twodim.js"></script>
+    <script type="text/javascript">    
+        
+    var tooltip = d3.select('div.tooltip');    
+    
+    var twoDFactory = new d3_twodim.twoDimFactory();
+    var objectlist = twoDFactory.createComponent({type: 'objectlist'})
+        .pointToString(function(d) {
+             return d['author'] + ": " + d['title'] + " (" + d['genre'] + ")"; 
+        });
+    var scatterplot = twoDFactory.createComponent({type: 'scatterplot'})
+        .width(400)
+        .height(400)
+        .doBrush(true)
+        .doVoronoi(true)
+        .fields(["Anger", "Reassure"])
+        .on('mouseover', function(d, ptPos) {
+            // console.log(d.But);
+            tooltip.transition()
+                .duration(200)
+                .style('opacity', 0.9);
+            tooltip.html(d['author'] + ": " + d['title'] + " (" + d['genre'] + ")")
+                .style('left', (ptPos.left + 7) + "px")
+                .style('top', (ptPos.top + 7) + "px");
+        })
+        .on('mouseout', function(d) {
+            tooltip.transition()
+                .duration(500)
+                .style('opacity', 0); 
+        });
+        
+    var test = twoDFactory.createComponent({type: 'scatterplot'})
+        .width(400)
+        .height(400)
+        .doVoronoi(true)
+        .doZoom(true)
+        .fields(["Positivity", "Negativity"])
+        .on('mouseover', function(d, ptPos) {
+            tooltip.transition()
+                .duration(200)
+                .style('opacity', 0.9);
+            tooltip.html(d['author'] + ": " + d['title'] + " (" + d['genre'] + ")")
+                .style('left', (ptPos.left + 7) + "px")
+                .style('top', (ptPos.top + 7) + "px");
+        })
+        .on('mouseout', function(d) {
+            tooltip.transition()
+                .duration(500)
+                .style('opacity', 0); 
+        });
+        
+    var dropdownX = twoDFactory.createComponent({type: 'dropdown'})
+        .mapFunction("dims")
+        .on("change", function(d, i) {
+            var selected = d3.select(this).property('value');
+            scatterplot.x(function(d) { return d[selected]; })
+              .xLabel(selected);
+            d3.select(".singleplot").call(scatterplot, ".singleplot");
+        });
+        
+    var dropdownY = twoDFactory.createComponent({type: 'dropdown'})
+        .mapFunction("dims")
+        .on("change", function(d, i) {
+            var selected = d3.select(this).property('value');
+            scatterplot.y(function(d) { return d[selected]; })
+                .yLabel(selected);
+            d3.select(".singleplot").call(scatterplot, ".singpleplot");
+        });
+        
+    var multiselect = twoDFactory.createComponent({type: 'dropdown'})
+        .mapFunction('values', 'author')
+        .on('change', function(d, i) {
+           var selected = d3.select(this).selectAll('option')
+            .filter(function(d) { return this.selected; });
+          
+          var ret = [];
+          selected.each(function(d) { ret.push(d); });
+          
+          twoDFactory.highlight(function(d) { 
+            return ret.indexOf(d["author"]) != -1;
+          }); 
+        });
+        
+    var legend = twoDFactory.createComponent({type: 'legend'});
+        
+    //d3.csv("venn2-small.csv", function(d) { return [+d[0], +d[1], d['G']]; }, function(error, rows) {
+    d3.csv("plays1554.csv", function(error, rows) {
+        twoDFactory.setData(rows).setGroupColumn(function(d) { return d.genre; });
+        
+        d3.select("#d3canvas")
+          .append('g')
+            .attr('class', 'legend')
+            .attr('transform', 'translate(950, 10)')
+            .call(legend, '.legend');
+        
+        var singlePlot = d3.select("#d3canvas")
+            .attr('width', 1050)
+            .attr('height', 450)
+          .append('g')
+            .attr('class', 'singleplot')
+            .attr('transform', "translate(50, 10)")
+            .call(scatterplot, ".singleplot");
+            
+        d3.select("#d3canvas")
+          .append('g')
+            .attr('class', 'singleplot2')
+            .attr('transform', 'translate(510, 10)')
+            .call(test, ".singleplot2");
+
+        var dimXDrop = d3.selectAll("#dataPoints .dropdown-x").call(dropdownX, 'ydim');
+        var dimYDrop = d3.select("#dataPoints .dropdown-y").call(dropdownY, 'ydim');
+        d3.select("#dataPoints .dropdown-authors").call(multiselect, 'authors');
+        var list = d3.select("#dataPoints").call(objectlist, 'dataPoints');
+    });
+    </script>
+</body>
+</html>
