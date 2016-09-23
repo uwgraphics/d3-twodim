@@ -1,10 +1,12 @@
 # d3-twodim
 
-Helps create two-dimensional representations of data using scatter plots (using SVG, Canvas, or WebGL), and (in the future) techniques such as Splatterplots and subsampled scatterplots.  This reusable component uses a factory design pattern to keep d3-twoDim components linked to interchange data and object state.
+d3-twodim is a **D3.v3.js** module for creating two-dimensional representations of data for end-user exploration.  Currently, d3-twodim can instantiate scatterplots using SVG, Canvas, or WebGL, and will (in the future) instantiate visualization techniques such as Splatterplots and subsampled scatterplots. This module uses a factory design pattern to keep d3-twodim components linked to one another in order to interchange data, data item state, and user interaction.
 
-This project is under active development.  Please feel free to file an issue, open a pull request, or [contact the author](http://twitter.com/yelperalp/) with any feedback.  If you use d3-twodim in your own project, [we would love to hear about it](http://twitter.com/yelperalp)!
+This project is under active development.  Please feel free to [file an issue](https://github.com/uwgraphics/d3-twodim/issues), open a pull request, or [contact the author](http://twitter.com/yelperalp/) with any feedback.  If you use d3-twodim in your own project, [we would love to hear about it](http://twitter.com/yelperalp)!
 
 ![An example instantiation of d3-twodim](examples/simpleExample.png)
+
+[**View a live example on the GitHub-hosted project page**](http://uwgraphics.github.io/d3-twodim/), or build the source and navigate to the `examples/` folder in a webserver.
 
 ## Installing
 
