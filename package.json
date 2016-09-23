@@ -1,20 +1,25 @@
 {
   "name": "d3-twodim",
-  "version": "0.0.1",
-  "description": "Provides a simple interface for constructing a scatterplot of 2D data",
+  "version": "0.2.0",
+  "description": "d3-twodim is a D3.v3.js module for creating two-dimensional representations of data for end-user exploration.",
   "keywords": [
     "d3",
+    "d3-module",
     "scatterplot",
     "scatter",
     "splatterplot",
-    "splatter",
     "2d",
     "2d points"
   ],
   "license": "BSD-3-Clause",
+  "author": {
+    "name": "Alper Sarikaya",
+    "url": "http://cs.wisc.edu/~sarikaya/"
+  },
   "main": "build/d3-twodim.js",
   "jsnext:main": "index",
-  "homepage": "https://github.com/uwgraphics/d3-twodim",
+  "homepage": "http://uwgraphics.github.io/d3-twodim/",
+  "bugs": "https://github.com/uwgraphics/d3-twodim/issues",
   "repository": {
     "type": "git",
     "url": "https://github.com/uwgraphics/d3-twodim.git"

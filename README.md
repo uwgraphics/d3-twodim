@@ -10,9 +10,7 @@ This project is under active development.  Please feel free to [file an issue](h
 
 ## Installing
 
-Download the [latest release](https://github.com/uwgraphics/d3-twodim/releases/latest), and include d3-twodim as a script source after including d3.v3.js.  Otherwise, you can modify and rebuild the library by calling `npm install` from the project root.  
-
-*After the library goes public*: If you use NPM, `npm install d3-twodim`. Otherwise, download the [latest release](https://github.com/uwgraphics/d3-twodim/releases/latest).
+Download the [latest release](https://github.com/uwgraphics/d3-twodim/releases/latest), and include d3-twodim as a script source after including d3.v3.js. If you use NPM, `npm install d3-twodim`. Otherwise, you can modify and rebuild the library by calling `npm install` from the project root.  
 
 ## Example Instantiation
 
