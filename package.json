@@ -1,6 +1,6 @@
 {
   "name": "d3-twodim",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "d3-twodim is a D3.v3.js module for creating two-dimensional representations of data for end-user exploration.",
   "keywords": [
     "d3",
