@@ -39,7 +39,7 @@ The real power comes from linking components together -- for example, you could 
 var scatterplot = twoDFactory.createComponent({type: 'scatterplot'})
   .width(400).height(400)
   .doBrush(true)
-  .fields(["dim1", "dim2"];
+  .fields(["dim1", "dim2"]);
   
 var scatterplot2 = twoDFactory.createComponent({type: 'scatterplot'})
   .width(400).height(400)
