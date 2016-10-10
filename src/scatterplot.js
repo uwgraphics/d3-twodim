@@ -1,4 +1,5 @@
 import scatterplot_webgl from "./scatterplot_webgl";
+import splatterplot from "./scatterplot_components/splatterplot";
 
 export default function(dispatch) {
   // 'global' declarations go here
@@ -584,7 +585,7 @@ export default function(dispatch) {
 
       // create the external object to handle rendering, if it doesn't exist
       if (!extScatterObj) {
-        extScatterObj = new scatterplot_webgl(selection, isDirty);
+        extScatterObj = new splatterplot(selection, isDirty);
       }
         
       // explicitly update data and call a render on the WebGL helper
