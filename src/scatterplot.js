@@ -1,5 +1,6 @@
 import scatterplot_webgl from "./scatterplot_webgl";
 import splatterplot from "./scatterplot_components/splatterplot";
+import splatter_new from "./scatterplot_components/splatter_new.js";
 
 export default function(dispatch) {
   // 'global' declarations go here
@@ -585,7 +586,7 @@ export default function(dispatch) {
 
       // create the external object to handle rendering, if it doesn't exist
       if (!extScatterObj) {
-        extScatterObj = new splatterplot(selection, isDirty);
+        extScatterObj = new splatter_new(selection, isDirty);
       }
         
       // explicitly update data and call a render on the WebGL helper
@@ -855,6 +856,7 @@ export default function(dispatch) {
   scatterplot.circleSize = function(newSize) {
     if (!arguments.length) return ptSize;
     ptSize = newSize;
+    if (extScatterObj) extScatterObj.circleSize(ptSize);
     return scatterplot; 
   }
   
