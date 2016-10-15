@@ -14,6 +14,8 @@ var webgl_util = function(gl, width, height) {
 
   this.fbo, this.rbo = undefined;
 
+  this.prevViewport = [];
+
   this.quad;
   this.mvp;
   this.bounds;
@@ -28,8 +30,13 @@ webgl_util.prototype.initCanvas = function() {
   gl.clearColor(1.0, 1.0, 1.0, 1.0);
   gl.viewport(0, 0, this.width, this.height);
 
-  // set up default shader
+  // set up default shaders
   this.getShader("pointShader", shaders.basicVertexShader, shaders.basicFragShader);
+  this.getShader("quadShader", shaders.spVBlurShader, shaders.identityFShader);
+
+  // set up render/framebuffer
+  this.fbo = gl.createFramebuffer();
+  this.rbo = gl.createRenderbuffer();
 };
 
 webgl_util.prototype.setPoints = function(data) {
@@ -65,6 +72,9 @@ webgl_util.prototype.setData = function(name, data, type) {
   if (buf.spacing != Math.round(buf.spacing) || buf.spacing > 4) {
     throw "Number of elements for each point is not consistent, or averages more than 4 items";
   }
+
+  // release the bound buffer
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
   this.buffers[name] = buf;
 }
@@ -171,6 +181,9 @@ webgl_util.prototype.createTexture = function(name, width, height, options) {
   tex.width = width; tex.height = height;
   gl.bindTexture(gl.TEXTURE_2D, tex);
 
+  // gl.clearColor(0.0, 0.0, 0.0, 0.0);
+  // gl.clear(gl.COLOR_BUFFER_BIT);
+
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
@@ -232,7 +245,7 @@ function parseUniforms(prog, uniforms) {
 
   for (var name in uniforms) {
 		var location = prog.uniformLocations[name] || gl.getUniformLocation(prog, name);
-		if (!location) {
+		if (!location || location == -1) {
 			console.warn("unable to find uniform " + name);
 			continue;
 		}
@@ -282,9 +295,120 @@ function arrayBufToGLType(type) {
     default:
       throw "unknown array type passed to arrayBufToGLType()";
   }
-}
+};
 
-// TODO: support drawing to texture
+function bindUniformsAndRequestedBuffers(prog, options) {
+  var gl = this.gl;
+  gl.useProgram(prog);
+  parseUniforms.call(this, prog, options.uniforms);
+
+  // set up each buffer, based on requested buffers
+  var self = this;
+  options.useData.forEach(function(bufName) {
+    var buf = self.buffers[bufName];
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+
+    var location = prog.attribLocations[bufName] || gl.getAttribLocation(prog, bufName);
+    gl.enableVertexAttribArray(location);
+    gl.vertexAttribPointer(location, buf.spacing, arrayBufToGLType.call(self, buf.type), false, 0, 0);
+
+    prog.attribLocations[bufName] = location;
+  });
+};
+
+function setUpDrawingState(options) {
+  var self = this;
+  var gl = this.gl;
+  var prog = this.progs[options.shader];
+
+  if (prog === undefined)
+    throw "Shader '" + options.shader + "' not found in library; did you forget to call getShader('"+options.shader+"',{vert},{frag})?";
+
+  // add to-be-bound textures and their positions to the uniform list
+  // allow textures to be named something other than what they're named within the shader 
+  //     iif array elements are of length two (texName, shaderName);
+  if (options.textures.length != 0 && Array.isArray(options.textures[0])) {
+    options.textures.forEach(function(texMapEntry, i) {
+      options.uniforms[texMapEntry[1]] = i;
+    });
+  } else {
+    options.textures.forEach(function(texName, i) {
+      options.uniforms[texName] = i;
+    });
+  }
+
+  bindUniformsAndRequestedBuffers.call(this, prog, options);
+
+  // clear the viewport, if requested
+  // if `options.clear` is an array, use those colors to clear
+  if (!!options.clear) {
+    if (Array.isArray(options.clear))
+      gl.clearColor(options.clear[0], options.clear[1], options.clear[2], options.clear[3]);
+    else
+      gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  }
+  
+  // bind the requested textures, if requested
+  options.textures.forEach(function(texName, i) {
+    if (Array.isArray(texName) && texName.length == 2)
+      self.bindTexture(texName[0], i);
+    else
+      self.bindTexture(texName, i);
+  });
+
+  // if drawing to texture, set up frame/renderbuffer for drawing
+  var v;
+  if (!!options.drawToTexture) {
+    var drawToTex = this.textures[options.drawToTexture];
+    if (!drawToTex)
+      throw new Error("Can't draw to texture " + options.drawToTexture + "; texture not found.");
+
+    this.prevViewport = gl.getParameter(gl.VIEWPORT);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, this.rbo);
+
+    if (drawToTex.width != this.rbo.width || drawToTex.height != this.rbo.height) {
+      this.rbo.width = drawToTex.width;
+      this.rbo.height = drawToTex.height;
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, drawToTex.width, drawToTex.height);
+    }
+
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, drawToTex, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.rbo);
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE)
+      throw new Error("Incomplete framebuffer detected (maybe failed to bind requested texture " + options.drawToTexture + "?)");
+  }
+};
+
+function tearDownDrawingState(options) {
+  var self = this;
+  var gl = this.gl;
+  var v = this.prevViewport;
+  var prog = this.progs[options.shader];
+
+  // unbind any bound framebuffers
+  if (!!options.drawToTexture) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+    gl.viewport(v[0], v[1], v[2], v[3]);
+  }
+
+  // unbind the bound textures
+  options.textures.forEach(function(texName, i) {
+    // texName parameter doesn't matter here; only i does
+    self.unbindTexture(texName, i);
+  });
+
+  // disable all attribute pointers
+  options.useData.forEach(function(bufNames) {
+    gl.disableVertexAttribArray(prog.attribLocations[name]);
+  });
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+};
+
 webgl_util.prototype.drawPoints = function(options) {
   var gl = this.gl;
 
@@ -306,71 +430,98 @@ webgl_util.prototype.drawPoints = function(options) {
     shader: "pointShader", 
     uniforms: {
       mvp: this.mvp, 
-      pointSize: 7, 
+      pointSize: ("drawDensity" in options && options.drawDensity) ? 1 : 7, 
       colorRampWidth: this.textures['colorRamp'].width
     }, 
-    drawToTexture: false, 
+    drawToTexture: false,
+    drawDensity: false,
     clear: true, 
     textures: ['colorRamp'], 
     useData: ['position', 'colorIndex']
   };
 
   // merge objects together, overwriting defaults
+  // don't overwrite uniforms, but overwrite everything else(?)
+  options.uniforms = Object.assign(optionDefaults.uniforms, options.uniforms);
   options = Object.assign(optionDefaults, options);
 
-  // add to-be-bound textures and their positions to the uniform list
-  options.textures.forEach(function(d, i) {
-    options.uniforms[d] = i;
-  })
-
-  var prog = this.progs[options.shader]
-  gl.useProgram(prog);
-  parseUniforms.call(this, prog, options.uniforms);
-
-  // set up each buffer, based on requested buffers
-  var self = this;
-  options.useData.forEach(function(bufName) {
-    var buf = self.buffers[bufName];
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-
-    var location = prog.attribLocations[bufName] || gl.getAttribLocation(prog, bufName);
-    gl.enableVertexAttribArray(location);
-    gl.vertexAttribPointer(location, buf.spacing, arrayBufToGLType.call(self, buf.type), false, 0, 0);
-
-    prog.attribLocations[bufName] = location;
-  });
-
-  // clear the viewport, if requested
-  if (options.clear)
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  setUpDrawingState.call(this, options);
   
-  // bind the requested textures, if requested
-  options.textures.forEach(function(d, i) {
-    self.bindTexture(d, i);
-  });
-
-  // blend points nicely, especially if antialiasing the points
-  gl.disable(gl.DEPTH_TEST);
-  gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
-  gl.enable(gl.BLEND);
+  if (options.drawDensity) {
+    gl.disable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
+    gl.blendEquation(gl.FUNC_ADD);
+    gl.blendFunc(gl.ONE, gl.ONE);
+  } else {
+    // blend points nicely, especially if antialiasing the points
+    gl.disable(gl.DEPTH_TEST);
+    // srcAlpha must be ONE (otherwise resulting alpha will be 0???)
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE); 
+    gl.enable(gl.BLEND);
+  }
 
   // actually draw the points
   gl.drawArrays(gl.POINTS, 0, this.buffers['position'].length);
 
-  // unbind the bound textures
-  options.textures.forEach(function(d, i) {
-    self.unbindTexture(d, i);
-  });
-
-  // disable all attribute pointers
-  options.useData.forEach(function(bufNames) {
-    gl.disableVertexAttribArray(prog.attribLocations[name]);
-  });
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, null);
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+  tearDownDrawingState.call(this, options);
 }
 
+webgl_util.prototype.drawQuad = function(options) {
+  var gl = this.gl;
 
+  if (!this.buffers.hasOwnProperty("quad")) {
+    this.setData("quad", [
+      [-1, -1, 0],
+      [ 1, -1, 0],
+      [-1,  1, 0],
+      [-1,  1, 0],
+      [ 1, -1, 0],
+      [ 1,  1, 0]
+    ]);
+  }
+
+  var optionDefaults = {
+    shader: "quadShader",
+    uniforms: {},
+    drawToTexture: false,
+    clear: true,
+    textures: [],
+    useData: ['quad']
+  };
+
+  // merge objects together, overwriting defaults
+  // don't overwrite uniforms, but overwrite everything else(?)
+  options.uniforms = Object.assign(optionDefaults.uniforms, options.uniforms);
+  options = Object.assign(optionDefaults, options);
+
+  setUpDrawingState.call(this, options);
+
+  // set up state for drawing from a quad
+  gl.disable(gl.DEPTH_TEST);
+  gl.blendEquation(gl.FUNC_ADD);
+  gl.blendFunc(gl.ONE_MINUS_DST_ALPHA, gl.DST_ALPHA);
+  gl.disable(gl.BLEND);
+
+  gl.drawArrays(gl.TRIANGLES, 0, this.buffers['quad'].length);
+
+  tearDownDrawingState.call(this, options);  
+}
+
+webgl_util.prototype.getTextureData = function(name) {
+  var gl = this.gl;
+  var tex = this.textures[name];
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE) {
+    var pixels = new Uint8Array(tex.width * tex.height * 4);
+    gl.readPixels(0, 0, tex.width, tex.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return pixels;
+  }
+  
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return [];
+}
 
 export default webgl_util;

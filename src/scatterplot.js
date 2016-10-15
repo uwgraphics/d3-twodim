@@ -591,7 +591,7 @@ export default function(dispatch) {
         
       // explicitly update data and call a render on the WebGL helper
       updateWebGLdata(scatterData);
-      selection.call(extScatterObj.setColorScale(colorScale), isDirty);
+      selection.call(extScatterObj.circleSize(ptSize).setColorScale(colorScale), isDirty);
       isDirty = false;
 
       // update the SVG overlay

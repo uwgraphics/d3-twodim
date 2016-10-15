@@ -1,4 +1,5 @@
 import {default as webgl_util} from './webgl_util';
+import {default as shaders} from './splatterplot_shaders';
 
 export default function() {
   var gl;
@@ -19,6 +20,29 @@ export default function() {
 
   var util;
 
+  function initComponents() {
+    // initialize textures
+    util.createTexture("blur0", width, height);
+    util.createTexture("blur1", width, height);
+    util.createTexture("max0", width, height);
+    util.createTexture("max1", width, height);
+    util.createTexture("dist0", width, height);
+    util.createTexture("dist1", width, height);
+
+    util.createTexture("test1", width, height, {type: gl.UNSIGNED_BYTE});
+
+    // compile relevant shaders
+    util.getShader("blur", shaders.spVBlurShader, shaders.spFBlurShader(128));
+    util.getShader("blurTest", shaders.spVBlurShader, shaders.spFBlurTest);
+    util.getShader("max", shaders.spVBlurShader, shaders.spFMaxValue);
+    util.getShader("jfainit", shaders.spVBlurShader, shaders.spFJFAInit);
+    util.getShader("jfa", shaders.spVBlurShader, shaders.spFJFA);
+    util.getShader("jfatest", shaders.spVBlurShader, shaders.spFJFATest);
+    util.getShader("shade", shaders.spVBlurShader, shaders.spFShade);
+    util.getShader("outliers", shaders.spVOutlier, shaders.spFPointShader);
+    util.getShader("outlierCombine", shaders.spVBlurShader, shaders.spFOutlierCombine);
+  }
+
   function splatter_new(selection, isDirty) {
     if (!gl) {
       var webglCanvas = selection.select('canvas');
@@ -33,6 +57,7 @@ export default function() {
 
       util = new webgl_util(gl, width, height);
       util.initCanvas();
+      initComponents();
     }
 
     if (isDirty) {
@@ -56,7 +81,165 @@ export default function() {
         util.setColorRamp(colorScale.range());
     }
 
-    util.drawPoints({pointSize: ptSize});
+    //// TEST DRAWING POINTS TO TEXTURE AND RENDERING THAT TEXTURE TO SCREEN
+    // util.createTexture("butts", width, height, {type: gl.UNSIGNED_BYTE, filter: gl.LINEAR});
+    // util.drawPoints({uniforms: {pointSize: ptSize}, drawToTexture: "butts"});;
+    // util.drawQuad({textures: [['butts', 'texture']]});
+
+    //// TEST DRAWING TEXTURE TO SCREEN
+    // var testImage = new Image();
+    // testImage.onload = function() {
+    //   util.createTexture("texture", 600, 600, {
+    //     filter: gl.LINEAR,
+    //     type: gl.UNSIGNED_BYTE
+    //   });
+
+    //   util.bindTexture('texture', 0);
+    //   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    //   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, testImage);
+    //   util.unbindTexture('texture', 0);
+
+    //   util.createTexture("test1", 600, 600, {type: gl.UNSIGNED_BYTE, filter: gl.LINEAR});
+    //   util.drawQuad({textures: ['texture'], drawToTexture: "test1"});
+    //   util.textures.texture = util.textures.test1;
+    //   util.drawQuad({textures: ['texture']});
+    // }
+    // testImage.src = "600x600test.png";
+
+    // 1. draw point density 
+    util.drawPoints({drawDensity: true, drawToTexture: "blur0"});
+
+    // 2. blur points horizontally
+    var delta = [1.0 / width, 1.0 / height];
+    util.drawQuad({
+      shader: "blur",
+      textures: [["blur0", "texture"]],
+      drawToTexture: "blur1",
+      uniforms: {
+        sigma: 15.0,
+        offset: [1.0, 0.0],
+        delta: delta
+      }
+    });
+
+    // 3. blur points vertically
+    util.drawQuad({
+      shader: "blur",
+      textures: [["blur1", "texture"]],
+      drawToTexture: "blur0",
+      uniforms: {
+        sigma: 15.0,
+        offset: [0.0, 1.0],
+        delta: delta
+      }
+    });
+
+    // also draw to max texture to compute maximum density value
+    util.drawQuad({
+      shader: "blur",
+      textures: [["blur1", "texture"]],
+      drawToTexture: "max0",
+      uniforms: {
+        sigma: 15.0,
+        offset: [0.0, 1.0],
+        delta: delta
+      }
+    });
+
+    // 4. obtain the maxVal
+    var scalePerStep = 8;
+    var maxDim = Math.max(width, height);
+    var numSteps = Math.floor(Math.log(maxDim) / Math.log(scalePerStep));
+    var pixelsAtEnd = Math.ceil(maxDim / Math.pow(scalePerStep, numSteps));
+
+    for (var i = 0; i < numSteps; i++) {
+      util.drawQuad({
+        shader: "max",
+        textures: [['max' + (i % 2), 'texture']],
+        drawToTexture: 'max' + ((i + 1) % 2),
+        uniforms: {
+          delta: delta
+        }
+      });
+    }     
+
+    // TODO: reconcile if pixelsAtEnd != 1 
+    // (e.g. if max is at extremum of x/y, it might be incorrect to pull from just 0,0 to get the maxVal)
+    var maxTex = 'max' + (numSteps % 2);
+
+    // 5. test blur output
+    // util.drawQuad({
+    //   shader: "blurTest",
+    //   textures: [
+    //     ['blur0', "texture"], 
+    //     [maxTex, "maxTex"]
+    //   ]
+    //   // drawToTexture: "test1"
+    // });
+
+    // 6. initialize JFA
+    util.drawQuad({
+      shader: "jfainit",
+      textures: [
+        ['blur0', 'texture'],
+        [maxTex, 'maxTex']
+      ],
+      drawToTexture: "dist0",
+      uniforms: { upperLimit: 0.5 },
+      clear: [0.0, 0.0, 0.0, 0.0]
+    });
+
+    // iterate on JFA until distance field is flooded
+    var log2 = Math.log(maxDim) / Math.log(2);
+    var n = Math.ceil(log2);
+    var k = Math.pow(2, n - 1);
+    n = (n - 1) / (2 + 1);
+
+    for (var i = 0; i < 2 * n; i++) {
+      util.drawQuad({
+        shader: "jfa",
+        textures: [['dist' + (i % 2), 'texture']],
+        drawToTexture: "dist" + ((i + 1) % 2),
+        uniforms: {
+          kStep: k,
+          delta: delta
+        },
+        clear: [0.0, 0.0, 0.0, 0.0]
+      });
+
+      k = Math.max(1, Math.round(k / 2));
+    }
+
+    // 7. test the distance field
+    // util.drawQuad({
+    //   shader: "jfatest",
+    //   textures: [['dist0', 'texture']],
+    //   uniforms: {maxDist: 700}
+    // });
+
+    // 9. compute the outliers
+    // TODO: fill this in
+
+    // 10. shade each group
+    util.drawQuad({
+      shader: "shade",
+      textures: [
+        ['blur0', 'texture'],
+        ['dist0', 'distances'],
+        [maxTex, 'maxTex'],
+        ['test1', 'outliers']
+      ],
+      uniforms: {
+        delta: delta,
+        rgbColor: [0.122, 0.467, 0.706],
+        lowerLimit: 0.001,
+        upperLimit: 0.5
+      },
+      clear: [1.0, 1.0, 1.0, 1.0]
+    })
+    
+
+    var a = util.getTextureData("test1");
   };
 
   splatter_new.setData = function(dataN, xValueN, yValueN, grpValueN, foundGroupsN, scaleN) {
