@@ -230,13 +230,14 @@ export default {
     uniform float gridSize; \
     uniform vec2 resolution; \
     uniform vec2 offset; \
+    uniform mat4 mvp; \
     \
     attribute vec3 position; \
     \
     varying vec4 vColor; \
     \
     void main() { \
-      vec4 thisPos = gl_ModelViewProjectionMatrix * vec4(position.xy, 0.0, 1.0); \
+      vec4 thisPos = mvp * vec4(position.xy, 0.0, 1.0); \
       vec2 coord = thisPos.xy * 0.5 + 0.5; \
       \n\
       // condition for discarding point \
@@ -254,6 +255,7 @@ export default {
     }",
 
   spFOutlierCombine: " \
+    precision highp float; \
     uniform sampler2D grid; \
     uniform float gridSize; \
     uniform float pointRadius; \
@@ -294,8 +296,8 @@ export default {
     uniform sampler2D texture; \
     uniform sampler2D distances; \
     uniform sampler2D maxTex; \
-    uniform sampler2D outliers; \
-    uniform vec2 delta; \
+    uniform sampler2D outliers; \n\
+    //uniform vec2 delta; \n\
     uniform vec3 rgbColor; \
     uniform float lowerLimit; \
     uniform float upperLimit; \

@@ -28,6 +28,8 @@ export default function() {
     util.createTexture("max1", width, height);
     util.createTexture("dist0", width, height);
     util.createTexture("dist1", width, height);
+    util.createTexture("outliers", width, height);
+    util.createTexture("outlierPts", width, height);
 
     util.createTexture("test1", width, height, {type: gl.UNSIGNED_BYTE});
 
@@ -68,6 +70,7 @@ export default function() {
         var pt = [];
         pt.push(xValue(d));
         pt.push(yValue(d));
+        pt.push(Math.random());
         ptData.push(pt);
 
         // just push the index of the colorScale output
@@ -193,7 +196,7 @@ export default function() {
     var log2 = Math.log(maxDim) / Math.log(2);
     var n = Math.ceil(log2);
     var k = Math.pow(2, n - 1);
-    n = (n - 1) / (2 + 1);
+    n = (n - 1) / 2 + 1;
 
     for (var i = 0; i < 2 * n; i++) {
       util.drawQuad({
@@ -207,8 +210,12 @@ export default function() {
         clear: [0.0, 0.0, 0.0, 0.0]
       });
 
+      console.log("drawing to texture dist" + ((i + 1) % 2));
+
       k = Math.max(1, Math.round(k / 2));
     }
+
+    var distTex = "dist" + ((n * 2) % 2);
 
     // 7. test the distance field
     // util.drawQuad({
@@ -216,28 +223,67 @@ export default function() {
     //   textures: [['dist0', 'texture']],
     //   uniforms: {maxDist: 700}
     // });
+    // return;
 
     // 9. compute the outliers
-    // TODO: fill this in
+    var clutterRadius = 25;
+    var scaleDomains = util.getBounds();
+    var resolution = [width, height];
+
+    // size of outlier grid in pixels
+    var gridSizePx = [width / clutterRadius, height / clutterRadius];
+
+    // the offest of the grid (align to 0,0 in point coordinate system)  
+    var gridOffset = [0,0];
+
+    for (var i = 0; i < 2; i++) {
+      // size of outlier grid in local point coordinate system
+      var gridSizeLoc = (scaleDomains[i][1] - scaleDomains[i][0]) / gridSizePx[i]; 
+      gridOffset[i] = (scaleDomains[i][0] / gridSizeLoc) - Math.floor(scaleDomains[i][0] / gridSizeLoc);
+      gridOffset[i] = gridOffset[i] * clutterRadius / resolution[i];
+    }
+
+    util.drawPoints({
+      shader: "outliers", 
+      drawToTexture: "outliers",
+      textures: [[distTex, "jfa"]],
+      uniforms: {
+        gridSize: clutterRadius,
+        resolution: resolution,
+        offset: gridOffset
+      },
+      clear: [0.0, 0.0, 0.0, 0.0]
+    });
+
+    util.drawQuad({
+      shader: "outlierCombine",
+      drawToTexture: "outlierPts",
+      textures: [["outliers", "grid"]],
+      uniforms: {
+        gridSize: clutterRadius,
+        pointRadius: ptSize,
+        resolution: resolution,
+        offset: gridOffset
+      },
+      clear: [0.0, 0.0, 0.0, 0.0]
+    });
 
     // 10. shade each group
     util.drawQuad({
       shader: "shade",
       textures: [
         ['blur0', 'texture'],
-        ['dist0', 'distances'],
+        [distTex, 'distances'],
         [maxTex, 'maxTex'],
-        ['test1', 'outliers']
+        ['outlierPts', 'outliers']
       ],
       uniforms: {
-        delta: delta,
         rgbColor: [0.122, 0.467, 0.706],
         lowerLimit: 0.001,
         upperLimit: 0.5
       },
       clear: [1.0, 1.0, 1.0, 1.0]
-    })
-    
+    });
 
     var a = util.getTextureData("test1");
   };

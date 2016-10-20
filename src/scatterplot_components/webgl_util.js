@@ -9,6 +9,8 @@ var webgl_util = function(gl, width, height) {
 
   this.data = {};
   this.buffers = {};
+  this.xDomain; 
+  this.yDomain;
 
   this.textures = {};
 
@@ -85,8 +87,8 @@ webgl_util.prototype.setBounds = function(xDomain, yDomain) {
     if (!this.data.hasOwnProperty("position")) 
       throw "Unable to set bounds with no parameters and no 'point' data set."
     
-    var xDomain = [Infinity, -Infinity];
-    var yDomain = [Infinity, -Infinity];
+    xDomain = [Infinity, -Infinity];
+    yDomain = [Infinity, -Infinity];
     var domain = this.data["position"].reduce(function(prev, point) {
       var x = point[0];
       var y = point[1];
@@ -113,6 +115,13 @@ webgl_util.prototype.setBounds = function(xDomain, yDomain) {
     0,       0,       1, 0,
     0,       0,       0, 1
   ];
+
+  this.xDomain = xDomain;
+  this.yDomain = yDomain;
+}
+
+webgl_util.prototype.getBounds = function() {
+  return [this.xDomain, this.yDomain];
 }
 
 webgl_util.prototype.getShader = function(name, vert, frag) {
@@ -412,6 +421,9 @@ function tearDownDrawingState(options) {
 webgl_util.prototype.drawPoints = function(options) {
   var gl = this.gl;
 
+  var defaultShader = "pointShader";
+  var isDefaultShader = (options.shader &&  options.shader == defaultShader);
+
   // check if position is set
   if (!this.buffers.hasOwnProperty('position'))
     throw "Point data has not been set; nothing to draw";
@@ -427,7 +439,7 @@ webgl_util.prototype.drawPoints = function(options) {
     this.setBounds();
 
   var optionDefaults = { 
-    shader: "pointShader", 
+    shader: defaultShader,
     uniforms: {
       mvp: this.mvp, 
       pointSize: ("drawDensity" in options && options.drawDensity) ? 1 : 7, 
@@ -437,13 +449,20 @@ webgl_util.prototype.drawPoints = function(options) {
     drawDensity: false,
     clear: true, 
     textures: ['colorRamp'], 
-    useData: ['position', 'colorIndex']
+    useData: isDefaultShader ? ['position', 'colorIndex'] : ['position']
   };
 
   // merge objects together, overwriting defaults
-  // don't overwrite uniforms, but overwrite everything else(?)
-  options.uniforms = Object.assign(optionDefaults.uniforms, options.uniforms);
+  // don't overwrite uniforms if shader is not changed, but overwrite everything else(?)
+  if (isDefaultShader)
+    options.uniforms = Object.assign(optionDefaults.uniforms, options.uniforms);
+
   options = Object.assign(optionDefaults, options);
+  
+  // last check; mvp is a required attribute.  
+  // if it doesn't exist in the current options object, add it
+  if (!options.uniforms.hasOwnProperty("mvp"))
+    options.uniforms.mvp = this.mvp;
 
   setUpDrawingState.call(this, options);
   
@@ -452,6 +471,10 @@ webgl_util.prototype.drawPoints = function(options) {
     gl.enable(gl.BLEND);
     gl.blendEquation(gl.FUNC_ADD);
     gl.blendFunc(gl.ONE, gl.ONE);
+  } else if (options.doDepthTest) {
+    gl.disable(gl.BLEND);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
   } else {
     // blend points nicely, especially if antialiasing the points
     gl.disable(gl.DEPTH_TEST);
