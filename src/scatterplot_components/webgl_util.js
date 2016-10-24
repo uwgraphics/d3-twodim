@@ -178,6 +178,9 @@ webgl_util.prototype.getShader = function(name, vert, frag) {
 webgl_util.prototype.createTexture = function(name, width, height, options) {
   var gl = this.gl;
 
+  if (this.textures.hasOwnProperty(name))
+	return this.textures[name];
+
   // set defaults
   options = options || {};
   var filter = options.filter || gl.NEAREST;
