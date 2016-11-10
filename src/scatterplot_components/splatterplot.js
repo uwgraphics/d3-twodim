@@ -1,127 +1,279 @@
-import scatterplot_webgl from '../scatterplot_webgl';
+import {default as webgl_utils} from './webgl_utils';
 import {default as shaders} from './splatterplot_shaders';
-import {compileShaders, draw, drawTo, drawFromTextureQuad, createTexture} from './webgl_utils';
 
 export default function() {
-	var gl;
-	var progs = {};
-  var textures = {};
-  var fbo;
+  var gl;
+  var width;
+  var height;
 
-	var width;
-	var height;
+  var data;
+  var scale;
 
-	var data;
-	var scale;
-	var xValue;
-	var yValue;
-	var grpVal;
-	var foundGroups;
+  var xValue;
+  var yValue;
+  var grpVal;
 
-	var points;
-	var pointsBuf;
-	var colorScale;
-	var flattenedColors;
-	var colorRampTexture;
-	var colorRampWidth;
+  var foundGroups;
+  var colorScale;
 
-	var ptSize = 7;
-	var curTransform;
+  var ptSize = 7;
 
-	function getShader(name, vert, frag) {
-		if (!progs.hasOwnProperty(name)) {
-      vert = vert || shaders.basicVertexShader;
-      frag = frag || shaders.basicFragShader;
-			var prog = compileShaders(gl, name, vert, frag);
-			
-			progs[name] = prog;
-		}
+  var bounds = [[], []]; // [minPt, maxPt]
+  var maxTexture;
+  var grpTexNum;
+  var maxDim;
+  var delta;
 
-		return progs[name];
-	}
+  var util;
 
-	function initCanvas() {
-    gl.disable(gl.DEPTH_TEST);
-    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
-    gl.enable(gl.BLEND);
+  function initComponents() {
+    // initialize global textures
+	  util.createTexture("maxTexture0", width, height);
+	  util.createTexture("maxTexture1", width, height);
+    util.createTexture("dist0", width, height);
+    util.createTexture("dist1", width, height);
+    util.createTexture("outliers", width, height);
+    util.createTexture("outlierPts", width, height);
 
-    gl.clearColor(1.0, 1.0, 1.0, 1.0);
-    gl.viewport(0, 0, width, height);
+    //util.createTexture("test1", width, height, {type: gl.UNSIGNED_BYTE});
 
-    pointsBuf = gl.createBuffer();
-    
-    fbo = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-    // reset the clear color
-    gl.clearColor(1.0, 1.0, 1.0, 1.0);
-
-    // create necessary textures
-    textures['blur0'] = createTexture(gl, width, height, {type: gl.FLOAT});
-    textures['blur1'] = createTexture(gl, width, height, {type: gl.FLOAT});
-    textures['max0'] = createTexture(gl, width, height, {type: gl.FLOAT});
-    textures['max1'] = createTexture(gl, width, height, {type: gl.FLOAT});
-    textures['dist0'] = createTexture(gl, width, height, {type: gl.FLOAT});
-    textures['dist1'] = createTexture(gl, width, height, {type: gl.FLOAT});
+    // compile relevant shaders
+    util.getShader("blur", shaders.spVBlurShader, shaders.spFBlurShader(128));
+    util.getShader("blurTest", shaders.spVBlurShader, shaders.spFBlurTest);
+    util.getShader("max", shaders.spVBlurShader, shaders.spFMaxValue);
+	  util.getShader("maxTexture", shaders.spVBlurShader, shaders.spFMaxTexture);
+    util.getShader("jfainit", shaders.spVBlurShader, shaders.spFJFAInit);
+    util.getShader("jfa", shaders.spVBlurShader, shaders.spFJFA);
+    util.getShader("jfatest", shaders.spVBlurShader, shaders.spFJFATest);
+    util.getShader("shade", shaders.spVBlurShader, shaders.spFShade);
+    util.getShader("outliers", shaders.spVOutlier, shaders.spFPointShader);
+    util.getShader("outlierCombine", shaders.spVBlurShader, shaders.spFOutlierCombine);
+	  util.getShader("blend", shaders.spVBlurShader, shaders.spFBlend);
   }
 
-  function setBounds() {
-    if (!scale)
-      throw "Need to call webgl component with data before drawing";
-    
-    var scale_x = 2 / (scale.x.domain()[1] - scale.x.domain()[0]);
-    var scale_y = 2 / (scale.y.domain()[1] - scale.y.domain()[0]);
-    var trans_x = -1 - scale.x.domain()[0];
-    var trans_y = -1 - scale.y.domain()[0];
+  function testPoints() {
+    //// TEST DRAWING POINTS TO TEXTURE AND RENDERING THAT TEXTURE TO SCREEN
+    util.createTexture("butts", width, height, {type: gl.UNSIGNED_BYTE, filter: gl.LINEAR});
+    util.drawPoints({uniforms: {pointSize: ptSize}, drawToTexture: "butts"});;
+    util.drawQuad({textures: [['butts', 'texture']]});
 
-		// webgl_utils.draw() will appropriately transpose this matrix
-    curTransform = [
-      scale_x, 0,       0, trans_x,
-      0,       scale_y, 0, trans_y, 
-      0,       0,       1, 0,
-      0,       0,       0, 1
-    ];
-  };
-
-  function genDataBuffer() {
-    points = [];
-    var colorRange = colorScale.range();
-    data.forEach(function(d) {
-      points.push(xValue(d));
-      points.push(yValue(d));
-      points.push(colorRange.indexOf(colorScale(grpVal(d)))); // get the color index for texture lookup
-    });
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, pointsBuf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW);
-
-		if (!colorRampTexture) {
-      colorRampTexture = createTexture(gl, colorRampWidth, colorRampWidth, {
+    //// TEST DRAWING TEXTURE TO SCREEN
+    // var testImage = new Image();
+    testImage.onload = function() {
+      util.createTexture("texture", 600, 600, {
+        filter: gl.LINEAR,
         type: gl.UNSIGNED_BYTE
       });
-		}
 
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, colorRampWidth, colorRampWidth,
-      0, gl.RGBA, gl.UNSIGNED_BYTE, flattenedColors);
+      util.bindTexture('texture', 0);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, testImage);
+      util.unbindTexture('texture', 0);
 
-    setBounds();
+      util.createTexture("test1", 600, 600, {type: gl.UNSIGNED_BYTE, filter: gl.LINEAR});
+      util.drawQuad({textures: ['texture'], drawToTexture: "test1"});
+      util.textures.texture = util.textures.test1;
+      util.drawQuad({textures: ['texture']});
+    }
+    testImage.src = "600x600test.png";
   }
 
-	function render() {
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, colorRampTexture);
-    
-    // gl.bindBuffer(gl.ARRAY_BUFFER, pointsBuf);
-    // gl.vertexAttribPointer(progs['test'].attribLocations.points, 2, gl.FLOAT, false, 12, 0);
-    // gl.vertexAttribPointer(progs['test'].attribLocations.colorIndex, 1, gl.FLOAT, false, 12, 8);
-    gl.drawArrays(gl.POINTS, 0, data.length);
+  function hexColorToNormRGB(hexColor) {
+	var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hexColor);
+    return result ? [
+      parseInt(result[1], 16) / 255,
+      parseInt(result[2], 16) / 255,
+      parseInt(result[3], 16) / 255
+    ] : null;
   }
 
-	// assume that an SVG/canvas combination has already been set up with correct width/height
+  function drawBlur(pts, grpNum) {
+	  util.setPoints(pts);
+
+    // 1. draw point density 
+    util.drawPoints({drawDensity: true, drawToTexture: "blur0-" + grpNum});
+
+    // 2. blur points horizontally
+    delta = [1.0 / width, 1.0 / height];
+    util.drawQuad({
+      shader: "blur",
+      textures: [["blur0-" + grpNum, "texture"]],
+      drawToTexture: "blur1-" + grpNum,
+      uniforms: {
+        sigma: 15.0,
+        offset: [1.0, 0.0],
+        delta: delta
+      }
+    });
+
+    // 3. blur points vertically
+    util.drawQuad({
+      shader: "blur",
+      textures: [["blur1-" + grpNum, "texture"]],
+      drawToTexture: "blur0-" + grpNum,
+      uniforms: {
+        sigma: 15.0,
+        offset: [0.0, 1.0],
+        delta: delta
+      }
+    });
+
+    // also draw to max texture to compute maximum density value
+    util.drawQuad({
+      shader: "blur",
+      textures: [["blur1-" + grpNum, "texture"]],
+      drawToTexture: "max0-" + grpNum,
+      uniforms: {
+        sigma: 15.0,
+        offset: [0.0, 1.0],
+        delta: delta
+      }
+    });
+
+    // 4. obtain the maxVal
+    var scalePerStep = 8;
+    maxDim = Math.max(width, height);
+    var numSteps = Math.floor(Math.log(maxDim) / Math.log(scalePerStep));
+    var pixelsAtEnd = Math.ceil(maxDim / Math.pow(scalePerStep, numSteps));
+
+    for (var i = 0; i < numSteps; i++) {
+      util.drawQuad({
+        shader: "max",
+        textures: [['max' + (i % 2) +"-"+ grpNum, 'texture']],
+        drawToTexture: 'max' + ((i + 1) % 2) +"-"+ grpNum,
+        uniforms: {
+          delta: delta
+        }
+      });
+    }     
+
+    // TODO: reconcile if pixelsAtEnd != 1 
+    // (e.g. if max is at extremum of x/y, it might be incorrect to pull from just 0,0 to get the maxVal)
+    //var maxTex = 'max' + (numSteps % 2);
+	  grpTexNum = 'max' + (numSteps % 2);
+
+    // 5. test blur output
+    // util.drawQuad({
+    //   shader: "blurTest",
+    //   textures: [
+    //     ['blur0', "texture"], 
+    //     [maxTex, "maxTex"]
+    //   ]
+    //   // drawToTexture: "test1"
+    // });
+  }
+
+  function drawGroup(pts, color, grpNum) {
+    util.setPoints(pts);
+    color = hexColorToNormRGB(color);
+
+    // 6. initialize JFA
+    util.drawQuad({
+      shader: "jfainit",
+      textures: [
+        ['blur0-'+grpNum, 'texture'],
+        [maxTexture, 'maxTex']
+      ],
+      drawToTexture: "dist0",
+      uniforms: { upperLimit: 0.5 },
+      clear: [0.0, 0.0, 0.0, 0.0]
+    });
+
+    // iterate on JFA until distance field is flooded
+    var log2 = Math.log(maxDim) / Math.log(2);
+    var n = Math.ceil(log2);
+    var k = Math.pow(2, n - 1);
+    n = (n - 1) / 2 + 1;
+
+    for (var i = 0; i < 2 * n; i++) {
+      util.drawQuad({
+        shader: "jfa",
+        textures: [['dist' + (i % 2), 'texture']],
+        drawToTexture: "dist" + ((i + 1) % 2),
+        uniforms: {
+          kStep: k,
+          delta: delta
+        },
+        clear: [0.0, 0.0, 0.0, 0.0]
+      });
+
+      k = Math.max(1, Math.round(k / 2));
+    }
+
+    var distTex = "dist" + ((n * 2) % 2);
+
+    // 7. test the distance field
+    // util.drawQuad({
+    //   shader: "jfatest",
+    //   textures: [['dist0', 'texture']],
+    //   uniforms: {maxDist: 700}
+    // });
+    // return;
+
+    // 9. compute the outliers
+    var clutterRadius = 25;
+    var scaleDomains = util.getBounds();
+    var resolution = [width, height];
+
+    // size of outlier grid in pixels
+    var gridSizePx = [width / clutterRadius, height / clutterRadius];
+
+    // the offest of the grid (align to 0,0 in point coordinate system)  
+    var gridOffset = [0,0];
+
+    for (var i = 0; i < 2; i++) {
+      // size of outlier grid in local point coordinate system
+      var gridSizeLoc = (scaleDomains[i][1] - scaleDomains[i][0]) / gridSizePx[i]; 
+      gridOffset[i] = (scaleDomains[i][0] / gridSizeLoc) - Math.floor(scaleDomains[i][0] / gridSizeLoc);
+      gridOffset[i] = gridOffset[i] * clutterRadius / resolution[i];
+    }
+
+    util.drawPoints({
+      shader: "outliers", 
+      drawToTexture: "outliers",
+      textures: [[distTex, "jfa"]],
+      uniforms: {
+        gridSize: clutterRadius,
+        resolution: resolution,
+        offset: gridOffset
+      },
+      clear: [0.0, 0.0, 0.0, 0.0]
+    });
+
+    util.drawQuad({
+      shader: "outlierCombine",
+      drawToTexture: "outlierPts",
+      textures: [["outliers", "grid"]],
+      uniforms: {
+        gridSize: clutterRadius,
+        pointRadius: ptSize,
+        resolution: resolution,
+        offset: gridOffset
+      },
+      clear: [0.0, 0.0, 0.0, 0.0]
+    });
+
+    // 10. shade each group
+    util.drawQuad({
+      shader: "shade",
+	  drawToTexture: "grp-"+grpNum,
+      textures: [
+        ['blur0-'+grpNum, 'texture'],
+        [distTex, 'distances'],
+        [maxTexture, 'maxTex'],
+        ['outlierPts', 'outliers']
+      ],
+      uniforms: {
+        rgbColor: color, //[0.122, 0.467, 0.706],
+        lowerLimit: 0.001,
+        upperLimit: 0.5
+      },
+      clear: [1.0, 1.0, 1.0, 1.0]
+    });
+
+    // var a = util.getTextureData("test1");
+  };
+
   function splatterplot(selection, isDirty) {
     if (!gl) {
       var webglCanvas = selection.select('canvas');
@@ -131,220 +283,112 @@ export default function() {
         return -1;
       }
 
-      var f = gl.getExtension("OES_texture_float");
-      if (!f) {
-        console.error("OES_texture_float support is required.  Fatal errors in rendering may follow");
-      }
-
       width = +webglCanvas.attr('width');
       height = +webglCanvas.attr('height');
 
-      initCanvas();
+      util = new webgl_utils(gl, width, height);
+      util.initCanvas();
+      initComponents();
     }
 
-    // var prog = getShader('test');
-    getShader("blur", shaders.spVBlurShader, shaders.spFBlurShader(128))
-    // getShader("blur", shaders.spVBlurShader, shaders.spFTestTexture);
-    getShader("point", shaders.spVPointShader, shaders.spFPointShader);
-    getShader("max", shaders.spVBlurShader, shaders.spFMaxValue);
-    getShader("jfainit", shaders.spVBlurShader, shaders.spFJFAInit);
-    getShader("jfa", shaders.spVBlurShader, shaders.spFJFA);
-    getShader("jfatest", shaders.spVBlurShader, shaders.spFJFATest);
-
+	  // split the data up into groups, asssign a color to each one
     if (isDirty) {
-      genDataBuffer();
-    }
+      // create min/maxPt
+      var xDomain = [Infinity, -Infinity];
+      var yDomain = [Infinity, -Infinity];
 
-    // draw(gl, prog, {
-		// 	pointSize: ptSize,
-		// 	mvp: curTransform,
-		// 	colorRamp: 0,
-		// 	colorRampWidth: colorRampWidth
-		// }, {
-    //   position: {numElements: 2, type: gl.FLOAT, offset: 0},
-    //   colorIndex: {numElements: 1, type: gl.FLOAT, offset: 8}
-    // }, pointsBuf, render);
+      // arrange the dataset by xValue, yValue
+      var ptData = [];
+      var ptColor = [];
+      var ptGrps = [];
+      data.forEach(function(d) {
+        var pt = [];
+        pt.push(xValue(d));
+        pt.push(yValue(d));
+        pt.push(Math.random());
+        ptData.push(pt);
 
-    // set the clearColor for density binning
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        // check and update bounds
+        xDomain = [Math.min(xDomain[0], xValue(d)), Math.max(xDomain[1], xValue(d))];
+        yDomain = [Math.min(yDomain[0], yValue(d)), Math.max(yDomain[1], yValue(d))];
 
-    // 1. draw points to density texture
-    drawTo(gl, textures['blur0'], width, height,
-      function() { 
-        draw(gl, getShader("point"),
-          {
-            pointSize: 1,
-            mvp: curTransform
-          }, {
-            position: {numElements: 3, type: gl.FLOAT}
-          }, pointsBuf, function() {
-            gl.disable(gl.DEPTH_TEST);
-            gl.enable(gl.BLEND);
-            gl.blendEquation(gl.FUNC_ADD);
-            gl.blendFunc(gl.ONE, gl.ONE);
-            
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        // just push the index of the colorScale output
+        ptColor.push(colorScale.range().indexOf(colorScale(grpVal(d))));
+      });
 
-            gl.drawArrays(gl.POINTS, 0, data.length);
-          }
-        )
-      }
-    );
+      var bounds = [[xDomain[0], yDomain[0]], [xDomain[1], yDomain[1]]];
+      util.setBounds(xDomain, yDomain);
 
-    // generate a goofy texture here
-    // var testTexture = createTexture(gl, 600, 600, {
-    //   filter: gl.LINEAR,
-    //   type: gl.UNSIGNED_BYTE
-    // });
-    // var testImage = new Image();
-    // testImage.onload = function() {
-    //   gl.activeTexture(gl.TEXTURE0);
-    //   gl.bindTexture(gl.TEXTURE_2D, testTexture);
-    //   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, testImage);
-      
-    //   drawFromTextureQuad(gl, getShader("blur"),
-    //     {
-    //       texture: 0
-    //     }, function() {
-    //       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    //     });
-    // };
-    // testImage.src = "600x600test.png";
+      // for each group, draw the blur so we can get the maximum density value
+      // from all groups (which allows density scale to be shared across groups)
+      var texNames = [];
+      for (var i = 0; i < colorScale.range().length; i++) {
+        var thesePts = ptData.filter(function(pt, index) {
+          return ptColor[index] == i;
+        });
 
-
-    // 2. blur points in the x direction
-    var delta = [1.0 / width, 1.0 / height]
-    drawTo(gl, textures['blur1'], width, height, 
-      function() {
-        drawFromTextureQuad(gl, getShader("blur"),
-          {
-            texture: 0,
-            sigma: 15.0,
-            offset: [1.0, 0.0],
-            delta: delta
-          }, function() {
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, textures['blur0']);
-          }
-        );
-      }
-    )
-
-    // 3. blur points in the y direction
-    drawTo(gl, textures['blur0'], width, height, 
-      function() {
-        drawFromTextureQuad(gl, getShader("blur"),
-          {
-            texture: 0,
-            sigma: 15.0,
-            offset: [1.0, 0.0],
-            delta: delta
-          }, function() {
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, textures['blur1']);
-          }
-        );
-      }
-    )
-
-    gl.bindTexture(gl.TEXTURE_2D, null);
-
-    // 4. iterate until we capture the max value in a texture
-    var scalePerStep = 8;
-    var maxDim = Math.max(width, height);
-    var numSteps = Math.floor(Math.log(maxDim) / Math.log(scalePerStep));
-    var pixAtEnd = Math.ceil(maxDim / Math.pow(scalePerStep, numSteps));
-
-    gl.disable(gl.DEPTH_TEST);
-
-    for (var i = 0; i < numSteps; i++) {
-      drawTo(gl, textures['max' + ((i + 1) % 2)], width, height,
-        function() {
-          drawFromTextureQuad(gl, getShader('max'), {
-            texture: 0, 
-            delta: delta
-          }, function() {
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, textures['max' + (i % 2)]);
-          });
+        ptGrps.push(thesePts);
+        if (thesePts.length === 0) {
+          console.warn("Group %s has no points; skipping", colorScale.range()[i]);
+          continue;
         }
-      );
 
-      gl.bindTexture(gl.TEXTURE_2D, null);
-    }
+        // create per-group textures (if they don't exist)
+        // blur0/1-#, max0/1-#, grp#
+        util.createTexture("blur0-"+i, width, height);
+        util.createTexture("blur1-"+i, width, height);
+        util.createTexture("max0-"+i, width, height);
+        util.createTexture("max1-"+i, width, height);
 
-    // the final value is in numSteps % 2
-    var maxTex = textures['max' + (i % 2)];
-
-    // 5. do JFA to get a distance field
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
-
-    // initialize JFA texture (set the thresholded regions)
-    drawTo(gl, textures['dist0'], width, height, 
-      function() {
-        drawFromTextureQuad(gl, getShader('jfainit'), {
-          texture: 0,
-          maxTex: 1,
-          upperLimit: 0.5
-        }, function() {
-          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, textures['blur0']);
-          gl.activeTexture(gl.TEXTURE1);
-          gl.bindTexture(gl.TEXTURE_2D, maxTex);
-        })
+        var texName = "grp-" + i;
+        util.createTexture("grp-" + i, width, height);
+        texNames.push(i);
+        drawBlur(thesePts, i);
       }
-    );
 
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, null);
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, null);
+      // compute the maximum of all max textures
+      for (var i = 0; i < texNames.length; i++) {
+        util.drawQuad({
+          shader: "maxTexture",
+          drawToTexture: "maxTexture" + ((i+1) % 2),
+          textures: [
+            ["maxTexture" + (i % 2), "max1"],
+            [grpTexNum + "-" + texNames[i], "max2"]
+          ]
+        });
+      }
 
-    // iterate until distance field floods
-    var log2 = Math.log(maxDim) / Math.log(2);
-    var n = Math.ceil(log2);
-    var k = Math.pow(2, n - 1);
-    n = (n - 1) / (2 + 1);
+      // determine the maximum texture's name
+      maxTexture = "maxTexture" + (colorScale.range().length % 2);
 
-    for (var i = 0; i < 2 * n; i++) {
-      drawTo(gl, textures['dist' + ((i+1) % 2)], width, height,
-        function() {
-          drawFromTextureQuad(gl, getShader('jfa'), {
-            kStep: k,
-            delta: delta,
-            texture: 0
-          }, function() {
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, textures['dist' + (i % 2)]);
-          })
-        }
-      );
+      // then, shade each group
+      for (var i = 0; i < texNames.length; i++) {
+      var dIndex = texNames[i];
+      drawGroup(ptGrps[dIndex], colorScale.range()[dIndex], dIndex);
+      }
 
-      k = Math.max(1, Math.round(k / 2));
-      gl.bindTexture(gl.TEXTURE_2D, null);
+      // do blending here; bind textures based on colorScale.range().length
+      var numGrps = Math.min(8, texNames.length);
+      var texMap = [];
+      for (var i = 0; i < numGrps; i++) {
+        texMap.push(["grp-"+texNames[i], "texture"+i]);
+      }
+
+      // finally, blend all groups together to create the splatterplot
+      util.drawQuad({
+        shader: "blend",
+        textures: texMap,
+        uniforms: {
+          N: numGrps,
+          lf: 0.9,
+          cf: 0.95
+        }, 
+        clear: [1.0, 1.0, 1.0, 1.0]
+      });
     }
+  }
 
-    // 6. Debug the JFA (?!?!?!?!)
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    drawFromTextureQuad(gl, getShader('jfatest'), {
-      texture: 0,
-      maxDist: 700
-    }, function() {
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, textures['dist0']);
-    });
-    
-
-  };	
-
-	splatterplot.setData = function(dataN, xValueN, yValueN, grpValueN, foundGroupsN, scaleN) {
+  splatterplot.setData = function(dataN, xValueN, yValueN, grpValueN, foundGroupsN, scaleN) {
     data = dataN;
     xValue = xValueN;
     yValue = yValueN;
@@ -357,18 +401,6 @@ export default function() {
 
   splatterplot.setColorScale = function(newScale) {
     colorScale = newScale;
-    var colors = newScale.range();
-
-    colorRampWidth = Math.ceil(Math.sqrt(colors.length));
-    flattenedColors = new Uint8Array(colorRampWidth * colorRampWidth  * 4);
-    colors.forEach(function(d, i) {
-      var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(d);
-      flattenedColors[i * 4]     = parseInt(result[1], 16);
-      flattenedColors[i * 4 + 1] = parseInt(result[2], 16);
-      flattenedColors[i * 4 + 2] = parseInt(result[3], 16);
-      flattenedColors[i * 4 + 3] = 255;
-    });
-    
     return splatterplot;
   }
 
@@ -377,6 +409,5 @@ export default function() {
     return splatterplot;
   }
 
-
-	return splatterplot;
+  return splatterplot;
 }

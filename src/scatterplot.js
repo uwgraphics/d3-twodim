@@ -1,6 +1,6 @@
 import scatterplot_webgl from "./scatterplot_webgl";
 import splatterplot from "./scatterplot_components/splatterplot";
-import splatter_new from "./scatterplot_components/splatter_new.js";
+// import splatter_new from "./scatterplot_components/splatter_new.js";
 
 export default function(dispatch) {
   // 'global' declarations go here
@@ -586,7 +586,14 @@ export default function(dispatch) {
 
       // create the external object to handle rendering, if it doesn't exist
       if (!extScatterObj) {
-        extScatterObj = new splatter_new(selection, isDirty);
+        switch (rendering) {
+          case "splatterplot": 
+            extScatterObj = new splatterplot(selection, isDirty);
+            break;
+          default: 
+            extScatterObj = new scatterplot_webgl(selection, isDirty);
+        }
+        
       }
         
       // explicitly update data and call a render on the WebGL helper
@@ -626,8 +633,11 @@ export default function(dispatch) {
         redrawCanvas(selection);
         break;
       case 'webgl': 
+      case 'splatterplot':
         redrawWebGL(selection);
         break;
+      default: 
+        throw "Unknown renderType passed to scatterplot: got " + rendering;
     }
     
     dispatch.on('highlight.' + name, function(selector) {
@@ -714,8 +724,8 @@ export default function(dispatch) {
    */
   scatterplot.renderType = function(renderType) {
     if (!arguments.length) return rendering;
-    if (['svg', 'canvas', 'webgl'].indexOf(renderType) == -1)
-      throw "Expected value of 'svg', 'canvas', or 'webgl' to scatterplot.renderType";
+    // if (['svg', 'canvas', 'webgl'].indexOf(renderType) == -1)
+    //   throw "Expected value of 'svg', 'canvas', or 'webgl' to scatterplot.renderType";
     rendering = renderType;
     return scatterplot;
   }
