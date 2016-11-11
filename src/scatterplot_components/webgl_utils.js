@@ -233,6 +233,21 @@ webgl_utils.prototype.unbindTexture = function(name, textureUnit) {
   gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
+webgl_utils.prototype.clearAllTextures = function(clearColor) {
+  var gl = this.gl;
+  var cc = clearColor || [0.0, 0.0, 0.0, 0.0];
+  gl.clearColor(cc[0], cc[1], cc[2], cc[3]);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+
+  for (var texture in this.textures) {
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.textures[texture], 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  }
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
 webgl_utils.prototype.setColorRamp = function(colors) {
   var gl = this.gl;
   var texWidth = Math.ceil(Math.sqrt(colors.length));
@@ -526,6 +541,7 @@ webgl_utils.prototype.drawQuad = function(options) {
   gl.disable(gl.DEPTH_TEST);
   gl.blendEquation(gl.FUNC_ADD);
   gl.blendFunc(gl.ONE_MINUS_DST_ALPHA, gl.DST_ALPHA);
+  // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   gl.disable(gl.BLEND);
 
   gl.drawArrays(gl.TRIANGLES, 0, this.buffers['quad'].length);

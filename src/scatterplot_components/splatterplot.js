@@ -293,9 +293,7 @@ export default function() {
 
 	  // split the data up into groups, asssign a color to each one
     if (isDirty) {
-      // create min/maxPt
-      var xDomain = [Infinity, -Infinity];
-      var yDomain = [Infinity, -Infinity];
+      util.clearAllTextures();
 
       // arrange the dataset by xValue, yValue
       var ptData = [];
@@ -309,15 +307,15 @@ export default function() {
         ptData.push(pt);
 
         // check and update bounds
-        xDomain = [Math.min(xDomain[0], xValue(d)), Math.max(xDomain[1], xValue(d))];
-        yDomain = [Math.min(yDomain[0], yValue(d)), Math.max(yDomain[1], yValue(d))];
+        // xDomain = [Math.min(xDomain[0], xValue(d)), Math.max(xDomain[1], xValue(d))];
+        // yDomain = [Math.min(yDomain[0], yValue(d)), Math.max(yDomain[1], yValue(d))];
 
         // just push the index of the colorScale output
         ptColor.push(colorScale.range().indexOf(colorScale(grpVal(d))));
       });
 
-      var bounds = [[xDomain[0], yDomain[0]], [xDomain[1], yDomain[1]]];
-      util.setBounds(xDomain, yDomain);
+      // var bounds = [[xDomain[0], yDomain[0]], [xDomain[1], yDomain[1]]];
+      util.setBounds(scale.x.domain(), scale.y.domain());
 
       // for each group, draw the blur so we can get the maximum density value
       // from all groups (which allows density scale to be shared across groups)

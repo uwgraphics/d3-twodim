@@ -43,21 +43,21 @@ export default function(dispatch) {
   // the shared scales/groups needed by all rendering mechanisms
   function setGlobals(data) {
     // set the discovered groups
-      foundGroups = grpValue == null ? 
-        ["undefined"] : 
-        d3.set(data.map(function(e) { return grpValue(e); })).values();
-      colorScale = colorScale || d3.scale.category10();
-      colorScale.domain(foundGroups);
-      console.log("found %d groups", foundGroups.length);
-      dispatch.groupUpdate(foundGroups, colorScale);
-      
-      // set the axes' domain
-      var xd = d3.extent(data, function(e) { return +xValue(e); });
-      var yd = d3.extent(data, function(e) { return +yValue(e); });
-      scale.x = d3.scale.linear()
-        .domain(xd).range([0, width]);
-      scale.y = d3.scale.linear()
-        .domain(yd).range([height, 0]);
+    foundGroups = grpValue == null ? 
+      ["undefined"] : 
+      d3.set(data.map(function(e) { return grpValue(e); })).values();
+    colorScale = colorScale || d3.scale.category10();
+    colorScale.domain(foundGroups);
+    console.log("found %d groups", foundGroups.length);
+    dispatch.groupUpdate(foundGroups, colorScale);
+    
+    // set the axes' domain
+    var xd = d3.extent(data, function(e) { return +xValue(e); });
+    var yd = d3.extent(data, function(e) { return +yValue(e); });
+    scale.x = d3.scale.linear()
+      .domain(xd).range([0, width]);
+    scale.y = d3.scale.linear()
+      .domain(yd).range([height, 0]);
   };
 
   // shared code to generate voronois for the given points
@@ -573,16 +573,43 @@ export default function(dispatch) {
         .style('text-anchor', 'middle')
     yLabel.text(function(d) { return d; });
     yLabel.exit().remove();
+
+    // handle zooming
+    zoomBehavior = d3.behavior.zoom()
+      .x(scale.x)
+      .y(scale.y)
+      .scaleExtent([0, 500])
+      .on("zoom", function(d) {
+        // trigger a redraw
+        // TODO: there's got to be a better way to select the container...
+        isDirty = true;
+        render(d3.select(svg.node().parentNode.parentNode));
+      }).on("zoomstart", function(d) {
+        if (localDispatch.hasOwnProperty('mouseout'))
+          localDispatch.mouseout(d);
+      });
+
+    if (doZoom) {
+      svg.selectAll('rect.backgroundDrag')
+        .data([1]).enter().append('rect')
+          .attr('class', 'backgroundDrag')
+          .attr({x: 0, y: 0, height: height, width: width})
+          .style('visibility', 'hidden')
+          .style('pointer-events', 'all');
+      svg.call(zoomBehavior);
+    }
   }
 
   function redrawWebGL(selection) {
     console.log("called scatterplot.redrawWebGL()");
     selection.each(function() {
       var container = d3.select(this);
-      setGlobals(scatterData);
-
-      if (container.select('canvas').empty() && container.select('svg'))
+      
+      // if context is not set up yet, set up DOM and internal state
+      if (container.select('canvas').empty() && container.select('svg')) {
         initializeCanvasSVGLayers(container);
+        setGlobals(scatterData);
+      }
 
       // create the external object to handle rendering, if it doesn't exist
       if (!extScatterObj) {
@@ -593,7 +620,6 @@ export default function(dispatch) {
           default: 
             extScatterObj = new scatterplot_webgl(selection, isDirty);
         }
-        
       }
         
       // explicitly update data and call a render on the WebGL helper
@@ -612,19 +638,8 @@ export default function(dispatch) {
     else
       console.warn("tried to update webgl data before initializing canvas");
   }
-  
-  /**
-   * Kicks off a render of the scatterplot object on the given selection. Following D3.js convention,
-   * this should be executed on a selection, 
-   * e.g., d3.select('g.scatterplot').call(scatterObj, '.scatterplot'). 
-   * The name argument is required to ensure that highlight dispatches from the factory are routed
-   * to the correct scatterplots.
-   * @param {d3.Selection} selection - The selection in which to instantiate and redraw the scatterplot.
-   * @param {string} name - The name of this selection to namespace factory dispatch methods (this should be unique across all instantiated d3-twoDim components) 
-   */
-  function scatterplot(selection, name) {
-    selectionName = name;
-    
+
+  function render(selection) {
     switch (rendering) {
       case 'svg':
         redrawSVG(selection);
@@ -639,6 +654,20 @@ export default function(dispatch) {
       default: 
         throw "Unknown renderType passed to scatterplot: got " + rendering;
     }
+  }
+  
+  /**
+   * Kicks off a render of the scatterplot object on the given selection. Following D3.js convention,
+   * this should be executed on a selection, 
+   * e.g., d3.select('g.scatterplot').call(scatterObj, '.scatterplot'). 
+   * The name argument is required to ensure that highlight dispatches from the factory are routed
+   * to the correct scatterplots.
+   * @param {d3.Selection} selection - The selection in which to instantiate and redraw the scatterplot.
+   * @param {string} name - The name of this selection to namespace factory dispatch methods (this should be unique across all instantiated d3-twoDim components) 
+   */
+  function scatterplot(selection, name) {
+    selectionName = name;
+    render(selection);
     
     dispatch.on('highlight.' + name, function(selector) {
       switch (rendering) {
