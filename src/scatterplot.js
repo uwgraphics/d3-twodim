@@ -515,7 +515,9 @@ export default function(dispatch) {
   }
 
   // initialize the SVG layer to capture mouse interaction; show brushes, axes, etc.
-  function updateSVGOverlay(container) {
+  function updateSVGOverlay(container, skipTransition) {
+    skipTransition = !!skipTransition;
+
     var svg = container.select('svg');
     svg = svg.select('g.container');
     // brush = d3.svg.brush()
@@ -533,11 +535,6 @@ export default function(dispatch) {
         .attr('transform', 'translate(0, ' + height + ')')
         .call(d3.svg.axis().orient('bottom').scale(scale.x));
 
-    xaxis.transition()
-      .duration(duration)
-      .attr('transform', 'translate(0,'+height+')')
-      .call(d3.svg.axis().orient('bottom').scale(scale.x));
-
     var xLabel = xaxis.selectAll('text.alabel')
       .data([name[0]]);
 
@@ -549,6 +546,10 @@ export default function(dispatch) {
     xLabel.text(function(d) { return d; });
     xLabel.exit().remove();
 
+    if (!skipTransition) xaxis = xaxis.transition().duration(duration);
+    xaxis.attr('transform', 'translate(0,'+height+')')
+      .call(d3.svg.axis().orient('bottom').scale(scale.x));
+
     var yaxis = svg.selectAll('g.yaxis')
       .data([0]);
 
@@ -556,10 +557,6 @@ export default function(dispatch) {
       .append('g')
         .attr('class', 'yaxis axis')
         .call(d3.svg.axis().orient('left').scale(scale.y));
-
-    yaxis.transition()
-      .duration(duration)
-      .call(d3.svg.axis().orient('left').scale(scale.y));
 
     var yLabel = yaxis.selectAll('text.alabel')
       .data([name[1]]);
@@ -574,6 +571,9 @@ export default function(dispatch) {
     yLabel.text(function(d) { return d; });
     yLabel.exit().remove();
 
+    if (!skipTransition) yaxis.transition().duration(duration);
+    yaxis.call(d3.svg.axis().orient('left').scale(scale.y));
+
     // handle zooming
     zoomBehavior = d3.behavior.zoom()
       .x(scale.x)
@@ -582,7 +582,6 @@ export default function(dispatch) {
       .on("zoom", function(d) {
         // trigger a redraw
         // TODO: there's got to be a better way to select the container...
-        isDirty = true;
         render(d3.select(svg.node().parentNode.parentNode));
       }).on("zoomstart", function(d) {
         if (localDispatch.hasOwnProperty('mouseout'))
@@ -628,7 +627,7 @@ export default function(dispatch) {
       isDirty = false;
 
       // update the SVG overlay
-      updateSVGOverlay(container);
+      updateSVGOverlay(container, true);
     });
   }
 

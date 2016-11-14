@@ -9,6 +9,11 @@ export default function() {
   var data;
   var scale;
 
+  var ptData = [];
+  var ptColor = [];
+  var ptGrps = [];
+  var texNames = [];
+
   var xValue;
   var yValue;
   var grpVal;
@@ -256,7 +261,7 @@ export default function() {
     // 10. shade each group
     util.drawQuad({
       shader: "shade",
-	  drawToTexture: "grp-"+grpNum,
+  	  drawToTexture: "grp-"+grpNum,
       textures: [
         ['blur0-'+grpNum, 'texture'],
         [distTex, 'distances'],
@@ -291,14 +296,18 @@ export default function() {
       initComponents();
     }
 
-	  // split the data up into groups, asssign a color to each one
-    if (isDirty) {
-      util.clearAllTextures();
+    // reset all textures
+    util.clearAllTextures();
 
+    // iff the properties of the data has changed (pts, grps), 
+    // clear and set up data state
+    if (isDirty) {
       // arrange the dataset by xValue, yValue
-      var ptData = [];
-      var ptColor = [];
-      var ptGrps = [];
+      ptData = [];
+      ptColor = [];
+      ptGrps = [];
+
+	    // split the data up into groups, asssign a color to each one
       data.forEach(function(d) {
         var pt = [];
         pt.push(xValue(d));
@@ -306,20 +315,12 @@ export default function() {
         pt.push(Math.random());
         ptData.push(pt);
 
-        // check and update bounds
-        // xDomain = [Math.min(xDomain[0], xValue(d)), Math.max(xDomain[1], xValue(d))];
-        // yDomain = [Math.min(yDomain[0], yValue(d)), Math.max(yDomain[1], yValue(d))];
-
         // just push the index of the colorScale output
         ptColor.push(colorScale.range().indexOf(colorScale(grpVal(d))));
       });
 
-      // var bounds = [[xDomain[0], yDomain[0]], [xDomain[1], yDomain[1]]];
-      util.setBounds(scale.x.domain(), scale.y.domain());
-
-      // for each group, draw the blur so we can get the maximum density value
-      // from all groups (which allows density scale to be shared across groups)
-      var texNames = [];
+      // create the required textures for each data group
+      texNames = [];
       for (var i = 0; i < colorScale.range().length; i++) {
         var thesePts = ptData.filter(function(pt, index) {
           return ptColor[index] == i;
@@ -341,49 +342,58 @@ export default function() {
         var texName = "grp-" + i;
         util.createTexture("grp-" + i, width, height);
         texNames.push(i);
-        drawBlur(thesePts, i);
       }
+    }
 
-      // compute the maximum of all max textures
-      for (var i = 0; i < texNames.length; i++) {
-        util.drawQuad({
-          shader: "maxTexture",
-          drawToTexture: "maxTexture" + ((i+1) % 2),
-          textures: [
-            ["maxTexture" + (i % 2), "max1"],
-            [grpTexNum + "-" + texNames[i], "max2"]
-          ]
-        });
-      }
+    // update domain bounds for canvas
+    util.setBounds(scale.x.domain(), scale.y.domain());
 
-      // determine the maximum texture's name
-      maxTexture = "maxTexture" + (colorScale.range().length % 2);
-
-      // then, shade each group
-      for (var i = 0; i < texNames.length; i++) {
+    // for each group, draw the blur so we can get the maximum density value
+    // from all groups (which allows density scale to be shared across groups)
+    for (var i = 0; i < texNames.length; i++) {
       var dIndex = texNames[i];
-      drawGroup(ptGrps[dIndex], colorScale.range()[dIndex], dIndex);
-      }
+      drawBlur(ptGrps[dIndex], dIndex);
+    }
 
-      // do blending here; bind textures based on colorScale.range().length
-      var numGrps = Math.min(8, texNames.length);
-      var texMap = [];
-      for (var i = 0; i < numGrps; i++) {
-        texMap.push(["grp-"+texNames[i], "texture"+i]);
-      }
-
-      // finally, blend all groups together to create the splatterplot
+    // compute the maximum of all max textures
+    for (var i = 0; i < texNames.length; i++) {
       util.drawQuad({
-        shader: "blend",
-        textures: texMap,
-        uniforms: {
-          N: numGrps,
-          lf: 0.9,
-          cf: 0.95
-        }, 
-        clear: [1.0, 1.0, 1.0, 1.0]
+        shader: "maxTexture",
+        drawToTexture: "maxTexture" + ((i+1) % 2),
+        textures: [
+          ["maxTexture" + (i % 2), "max1"],
+          [grpTexNum + "-" + texNames[i], "max2"]
+        ]
       });
     }
+
+    // determine the maximum texture's name
+    maxTexture = "maxTexture" + (colorScale.range().length % 2);
+
+    // then, shade each group
+    for (var i = 0; i < texNames.length; i++) {
+      var dIndex = texNames[i];
+      drawGroup(ptGrps[dIndex], colorScale.range()[dIndex], dIndex);
+    }
+
+    // do blending here; bind textures based on colorScale.range().length
+    var numGrps = Math.min(8, texNames.length);
+    var texMap = [];
+    for (var i = 0; i < numGrps; i++) {
+      texMap.push(["grp-"+texNames[i], "texture"+i]);
+    }
+
+    // finally, blend all groups together to create the splatterplot
+    util.drawQuad({
+      shader: "blend",
+      textures: texMap,
+      uniforms: {
+        N: numGrps,
+        lf: 0.9,
+        cf: 0.95
+      }, 
+      clear: [1.0, 1.0, 1.0, 1.0]
+    });
   }
 
   splatterplot.setData = function(dataN, xValueN, yValueN, grpValueN, foundGroupsN, scaleN) {

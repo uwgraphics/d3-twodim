@@ -233,14 +233,19 @@ webgl_utils.prototype.unbindTexture = function(name, textureUnit) {
   gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
-webgl_utils.prototype.clearAllTextures = function(clearColor) {
+webgl_utils.prototype.clearAllTextures = function(clearColor, excludeTextures) {
   var gl = this.gl;
+  
   var cc = clearColor || [0.0, 0.0, 0.0, 0.0];
   gl.clearColor(cc[0], cc[1], cc[2], cc[3]);
-
+  excludeTextures = excludeTextures || ["colorRamp"];
+  
   gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
 
   for (var texture in this.textures) {
+    // exclude some textures from being cleared
+    if (excludeTextures.indexOf(texture) != -1) continue;
+
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.textures[texture], 0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   }
