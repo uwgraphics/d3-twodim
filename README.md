@@ -98,11 +98,15 @@ If you are creating a *scatterplot* object, you may also add the **render** fiel
 
 Sets the data for all components instantiated by this factory. Expects data in an array format, where every element conforms to a standardized, consistent anonymous object format or array of consistent sizes.  See D3's [data()](https://github.com/d3/d3-selection#joining-data) documentation for more detail.
 
-<a name="factory_setGroupColumn" href="#factory_setGroupColumn">#</a> *twoDimFactory*.**setGroupColumn**(*selector*) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/twoDimFactory.js#L66)
+<a name="factory_setGroupColumn" href="#factory_setGroupColumn">#</a> *twoDimFactory*.**setGroupColumn**(*selector*) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/twoDimFactory.js#L68)
 
- Sets the function that selects the field in the data on which to group on (usually a categorical column).  The given function *selector* is shared with any instantiated scatterplot and legend components.
+ Sets the function that determines the group name of a given point.  The given function *selector* takes an arbitrary data point, and returns a string representation of its group membership.  This function is shared with any instantiated scatterplot and legend components.
  
- <a name="factory_highlight" href="#highlight">#</a> *twoDimFactory*.**highlight**(*highlightFunction*) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/twoDimFactory.js#L81)
+<a name="factory_setGroupField" href="#factory_setGroupField">#</a> *twoDimFactory*.**setGroupField**(*groupField*) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/twoDimFactory.js#L85)
+
+Sets the categorical column name that will be used to group points.  Shorthand for calling `setGroupColumn`.  The given string *groupField* is converted to a function and is shared with any instantiated scatterplot and legend components.
+ 
+ <a name="factory_highlight" href="#highlight">#</a> *twoDimFactory*.**highlight**(*highlightFunction*) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/twoDimFactory.js#L94)
 
 Programmatically kicks off a `highlight` dispatch to all instantiated components from this factory.  With the given *highlightFunction*, causes the matched objects to have their 'highlighted' behavior enabled (much like a given funtion to [filter()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter)) and trigger a redraw on all linked d3-twodim components.
 

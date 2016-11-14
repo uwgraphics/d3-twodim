@@ -59,8 +59,10 @@ twoDimFactory.prototype.setData = function(data) {
 };
 
 /**
- * Sets the function that selects the field on which to group on (usually a categorical column).  The given function is shared with any instantiated scatterplot and legend components
- * @param {groupCallback} groupSelector - The function that selects the field on which to group the data on
+ * Sets the function that determines the group name of a given point.  The given function *selector* 
+ * takes an arbitrary data point, and returns a string representation of its group membership.  This 
+ * function is shared with any instantiated scatterplot and legend components.
+ * @param {groupCallback} groupSelector - A function that takes an arbitrary object and returns the group membership as a string
  * @returns {twoDimFactory} The current factory object 
  */
 twoDimFactory.prototype.setGroupColumn = function(groupSelector) {
@@ -72,6 +74,17 @@ twoDimFactory.prototype.setGroupColumn = function(groupSelector) {
   scatterAndLegends.forEach(function(d) { d.groupColumn(groupSelector); });
   return this;  
 };
+
+/**
+ * Sets the categorical column name that will be used to group points.  Shorthand for calling
+ * `setGroupColumn`.  The given string *groupField* is converted to a function and is shared with any
+ * instantiated scatterplot and legend components.
+ * @param {string} groupField - The field in the data that contains the grouping category
+ * @returns {twoDimFactory} The current factory object
+ */
+twoDimFactory.prototype.setGroupField = function(groupField) {
+  return this.setGroupColumn(function(d) { return d[groupField]; });
+}
 
 /**
  * Programmatically kicks off a `highlight` dispatch to all instantiated components from this factory.  With the given function, causes the selected objects to have their 'highlighted' behavior enabled.
