@@ -1,4 +1,6 @@
 import scatterplot_webgl from "./scatterplot_webgl";
+import splatterplot from "./scatterplot_components/splatterplot";
+// import splatter_new from "./scatterplot_components/splatter_new.js";
 
 export default function(dispatch) {
   // 'global' declarations go here
@@ -41,21 +43,21 @@ export default function(dispatch) {
   // the shared scales/groups needed by all rendering mechanisms
   function setGlobals(data) {
     // set the discovered groups
-      foundGroups = grpValue == null ? 
-        ["undefined"] : 
-        d3.set(data.map(function(e) { return grpValue(e); })).values();
-      colorScale = colorScale || d3.scale.category10();
-      colorScale.domain(foundGroups);
-      console.log("found %d groups", foundGroups.length);
-      dispatch.groupUpdate(foundGroups, colorScale);
-      
-      // set the axes' domain
-      var xd = d3.extent(data, function(e) { return +xValue(e); });
-      var yd = d3.extent(data, function(e) { return +yValue(e); });
-      scale.x = d3.scale.linear()
-        .domain(xd).range([0, width]);
-      scale.y = d3.scale.linear()
-        .domain(yd).range([height, 0]);
+    foundGroups = grpValue == null ? 
+      ["undefined"] : 
+      d3.set(data.map(function(e) { return grpValue(e); })).values();
+    colorScale = colorScale || d3.scale.category10();
+    colorScale.domain(foundGroups);
+    console.log("found %d groups", foundGroups.length);
+    dispatch.groupUpdate(foundGroups, colorScale);
+    
+    // set the axes' domain
+    var xd = d3.extent(data, function(e) { return +xValue(e); });
+    var yd = d3.extent(data, function(e) { return +yValue(e); });
+    scale.x = d3.scale.linear()
+      .domain(xd).range([0, width]);
+    scale.y = d3.scale.linear()
+      .domain(yd).range([height, 0]);
   };
 
   // shared code to generate voronois for the given points
@@ -513,7 +515,9 @@ export default function(dispatch) {
   }
 
   // initialize the SVG layer to capture mouse interaction; show brushes, axes, etc.
-  function updateSVGOverlay(container) {
+  function updateSVGOverlay(container, skipTransition) {
+    skipTransition = !!skipTransition;
+
     var svg = container.select('svg');
     svg = svg.select('g.container');
     // brush = d3.svg.brush()
@@ -531,11 +535,6 @@ export default function(dispatch) {
         .attr('transform', 'translate(0, ' + height + ')')
         .call(d3.svg.axis().orient('bottom').scale(scale.x));
 
-    xaxis.transition()
-      .duration(duration)
-      .attr('transform', 'translate(0,'+height+')')
-      .call(d3.svg.axis().orient('bottom').scale(scale.x));
-
     var xLabel = xaxis.selectAll('text.alabel')
       .data([name[0]]);
 
@@ -547,6 +546,10 @@ export default function(dispatch) {
     xLabel.text(function(d) { return d; });
     xLabel.exit().remove();
 
+    if (!skipTransition) xaxis = xaxis.transition().duration(duration);
+    xaxis.attr('transform', 'translate(0,'+height+')')
+      .call(d3.svg.axis().orient('bottom').scale(scale.x));
+
     var yaxis = svg.selectAll('g.yaxis')
       .data([0]);
 
@@ -554,10 +557,6 @@ export default function(dispatch) {
       .append('g')
         .attr('class', 'yaxis axis')
         .call(d3.svg.axis().orient('left').scale(scale.y));
-
-    yaxis.transition()
-      .duration(duration)
-      .call(d3.svg.axis().orient('left').scale(scale.y));
 
     var yLabel = yaxis.selectAll('text.alabel')
       .data([name[1]]);
@@ -571,29 +570,64 @@ export default function(dispatch) {
         .style('text-anchor', 'middle')
     yLabel.text(function(d) { return d; });
     yLabel.exit().remove();
+
+    if (!skipTransition) yaxis.transition().duration(duration);
+    yaxis.call(d3.svg.axis().orient('left').scale(scale.y));
+
+    // handle zooming
+    zoomBehavior = d3.behavior.zoom()
+      .x(scale.x)
+      .y(scale.y)
+      .scaleExtent([0, 500])
+      .on("zoom", function(d) {
+        // trigger a redraw
+        // TODO: there's got to be a better way to select the container...
+        render(d3.select(svg.node().parentNode.parentNode));
+      }).on("zoomstart", function(d) {
+        if (localDispatch.hasOwnProperty('mouseout'))
+          localDispatch.mouseout(d);
+      });
+
+    if (doZoom) {
+      svg.selectAll('rect.backgroundDrag')
+        .data([1]).enter().append('rect')
+          .attr('class', 'backgroundDrag')
+          .attr({x: 0, y: 0, height: height, width: width})
+          .style('visibility', 'hidden')
+          .style('pointer-events', 'all');
+      svg.call(zoomBehavior);
+    }
   }
 
   function redrawWebGL(selection) {
     console.log("called scatterplot.redrawWebGL()");
     selection.each(function() {
       var container = d3.select(this);
-      setGlobals(scatterData);
-
-      if (container.select('canvas').empty() && container.select('svg'))
+      
+      // if context is not set up yet, set up DOM and internal state
+      if (container.select('canvas').empty() && container.select('svg')) {
         initializeCanvasSVGLayers(container);
+        setGlobals(scatterData);
+      }
 
       // create the external object to handle rendering, if it doesn't exist
       if (!extScatterObj) {
-        extScatterObj = new scatterplot_webgl(selection, isDirty);
+        switch (rendering) {
+          case "splatterplot": 
+            extScatterObj = new splatterplot(selection, isDirty);
+            break;
+          default: 
+            extScatterObj = new scatterplot_webgl(selection, isDirty);
+        }
       }
         
       // explicitly update data and call a render on the WebGL helper
       updateWebGLdata(scatterData);
-      selection.call(extScatterObj.setColorScale(colorScale), isDirty);
+      selection.call(extScatterObj.circleSize(ptSize).setColorScale(colorScale), isDirty);
       isDirty = false;
 
       // update the SVG overlay
-      updateSVGOverlay(container);
+      updateSVGOverlay(container, true);
     });
   }
 
@@ -602,6 +636,23 @@ export default function(dispatch) {
       extScatterObj.setData(thisData, xValue, yValue, grpValue, foundGroups, scale);
     else
       console.warn("tried to update webgl data before initializing canvas");
+  }
+
+  function render(selection) {
+    switch (rendering) {
+      case 'svg':
+        redrawSVG(selection);
+        break;
+      case 'canvas':
+        redrawCanvas(selection);
+        break;
+      case 'webgl': 
+      case 'splatterplot':
+        redrawWebGL(selection);
+        break;
+      default: 
+        throw "Unknown renderType passed to scatterplot: got " + rendering;
+    }
   }
   
   /**
@@ -615,18 +666,7 @@ export default function(dispatch) {
    */
   function scatterplot(selection, name) {
     selectionName = name;
-    
-    switch (rendering) {
-      case 'svg':
-        redrawSVG(selection);
-        break;
-      case 'canvas':
-        redrawCanvas(selection);
-        break;
-      case 'webgl': 
-        redrawWebGL(selection);
-        break;
-    }
+    render(selection);
     
     dispatch.on('highlight.' + name, function(selector) {
       switch (rendering) {
@@ -712,8 +752,8 @@ export default function(dispatch) {
    */
   scatterplot.renderType = function(renderType) {
     if (!arguments.length) return rendering;
-    if (['svg', 'canvas', 'webgl'].indexOf(renderType) == -1)
-      throw "Expected value of 'svg', 'canvas', or 'webgl' to scatterplot.renderType";
+    // if (['svg', 'canvas', 'webgl'].indexOf(renderType) == -1)
+    //   throw "Expected value of 'svg', 'canvas', or 'webgl' to scatterplot.renderType";
     rendering = renderType;
     return scatterplot;
   }
@@ -854,6 +894,7 @@ export default function(dispatch) {
   scatterplot.circleSize = function(newSize) {
     if (!arguments.length) return ptSize;
     ptSize = newSize;
+    if (extScatterObj) extScatterObj.circleSize(ptSize);
     return scatterplot; 
   }
   
