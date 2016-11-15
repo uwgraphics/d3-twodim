@@ -237,6 +237,10 @@ Gets or sets the function to extract the group membership for each data element.
 
 Gets or sets the [d3.scale](https://github.com/d3/d3-3.x-api-reference/blob/master/Ordinal-Scales.md) object that maps the [groupColumn](#scatterplot_groupColumn) to a color.  An ordinal scale (such as [d3.scale.category20b](https://github.com/d3/d3-3.x-api-reference/blob/master/Ordinal-Scales#category20b)) can be used for categorical data, while a [quantize scale](https://github.com/d3/d3-3.x-api-reference/blob/master/Quantitative-Scales.md#quantize-scales) should be used for group values that are continuous.
 
+<a name="scatterplot_bounds" href="#scatterplot_bounds">#</a> *scatterplot*.**bounds**([*newBounds*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L988)
+
+Gets or sets the bounds of the scatterplot.  The bounds are given as a 2D array, of the format `[[xmin, xmax], [ymin, ymax]]`.  The scatterplot needs to then be called on the selection in order to prompt a render to show the updated bounds.
+
 <a name="scatterplot_doBrush" href="#scatterplot_doBrush">#</a> *scatterplot*.**doBrush**([*doBrush*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L914)
 
 Gets or sets whether the scatterplot should implement a rectangular brushing component, similar to d3's brush.  By changing this value, the component is added to or removed from the scatterplot.  Note that activating this component with the [doZoom](#scatterplot_doZoom) option is not supported (the function of the mouse is overloaded).

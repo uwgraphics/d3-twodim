@@ -15,6 +15,7 @@ export default function(dispatch) {
   var xValue = function(d) { return +d[0]; };
   var yValue = function(d) { return +d[1]; };
   var scale = { x: undefined, y: undefined };
+  var bounds = [[], []];
   var name = ["", ""];
 
   var availableFields = [];
@@ -54,13 +55,28 @@ export default function(dispatch) {
     console.log("found %d groups", foundGroups.length);
     dispatch.groupUpdate(foundGroups, colorScale);
     
-    // set the axes' domain
-    var xd = d3.extent(data, function(e) { return +xValue(e); });
-    var yd = d3.extent(data, function(e) { return +yValue(e); });
-    scale.x = d3.scale.linear()
-      .domain(xd).range([0, width]);
-    scale.y = d3.scale.linear()
-      .domain(yd).range([height, 0]);
+    if (scale.x === undefined) {
+      scale.x = d3.scale.linear();
+      scale.y = d3.scale.linear();
+    } 
+    
+    // set the axes' domain, iff existing domain is empty
+    if (!bounds[0].length) {
+      var xd = d3.extent(data, function(e) { return +xValue(e); });
+      var yd = d3.extent(data, function(e) { return +yValue(e); });
+
+      xd = xd.map(function(d, i) { 
+        return d + (i % 2 == 0 ? -1 : 1) * ((xd[1] - xd[0]) / 20); 
+      });
+      yd = yd.map(function(d, i) { 
+        return d + (i % 2 == 0 ? -1 : 1) * ((yd[1] - yd[0]) / 20); 
+      });
+
+      bounds = [xd, yd];
+    }
+
+    scale.x.range([0, width]).domain(bounds[0]);
+    scale.y.range([height, 0]).domain(bounds[1]);
   };
 
   // shared code to generate voronois for the given points
@@ -260,13 +276,15 @@ export default function(dispatch) {
         // this will have no effect if brush elements are already in place
         chartArea.call(brush);
       } else {
-        // remove all traces of the brush and deactivate events
-        brushDirty = true;
-        chartArea.style('pointer-events', null)
-          .style('-webkit-tap-highlight-color', null);
-        chartArea.selectAll('.background, .extent, .resize').remove();
-        chartArea.on('mousedown.brush', null)
-          .on('touchstart.brush', null);
+        // if a brush WAS here, remove all traces of the brush and deactivate events
+        if (!chartArea.selectAll('.background, .extent, .resize').empty()) {
+          brushDirty = true;
+          chartArea.style('pointer-events', null)
+            .style('-webkit-tap-highlight-color', null);
+          chartArea.selectAll('.background, .extent, .resize').remove();
+          chartArea.on('mousedown.brush', null)
+            .on('touchstart.brush', null);
+        }
 
         // if zoom AND NOT brush, 
         // make a background element to capture clicks for zooming/panning
@@ -279,10 +297,6 @@ export default function(dispatch) {
               .style('pointer-events', 'all');
         }
       }
-        
-      // hack to clear selected points post-hoc after removing brush element 
-      // (to get around inifinite-loop problem if called from within the exit() selection)
-      if (brushDirty) dispatch.highlight(false);
       
       // deal with setting up the voronoi group
       var voronoiGroup = chartArea.selectAll('g.voronoi')
@@ -302,6 +316,10 @@ export default function(dispatch) {
 
       // finally, draw the points
       updateGraph();
+
+      // hack to clear selected points post-hoc after removing brush element 
+      // (to get around inifinite-loop problem if called from within the exit() selection)
+      if (brushDirty) dispatch.highlight(false);
 
       function updateGraph(skipTransition) {
         skipTransition = !!skipTransition;
@@ -890,7 +908,8 @@ export default function(dispatch) {
    */
   scatterplot.fields = function(fields) {
     if (!arguments.length) return name;
-    if (fields.length != 2) throw "Expected an array of length two for scatterplot.fields: [xField, yField]";
+    if (fields.length != 2) 
+      throw "Expected an array of length two for scatterplot.fields: [xField, yField]";
     
     name = fields;
     xValue = function(d) { return +d[name[0]]; };
@@ -957,6 +976,22 @@ export default function(dispatch) {
     if (!arguments.length) return colorScale;
     colorScale = newScale;
     if (extScatterObj) extScatterObj.setColorScale(colorScale);
+    return scatterplot;
+  }
+  
+  /**
+   * Gets or sets the bounds of the scatterplot.  The bounds are given as a 2D array, of the format
+   * `[[xmin, xmax], [ymin, ymax]]`.  The scatterplot needs to then be called on the selection in
+   * order to prompt a render to show the updated bounds.
+   * @param {number[]} [newBounds] - Sets the bounds of the scatterplot to the supplied values   
+   */
+  scatterplot.bounds = function(newBounds) {
+    if (!arguments.length) return [scale.x.domain(), scale.y.domain()];
+    if (!Array.isArray(newBounds) || newBounds.length != 2) 
+      throw "Expected array of length 2 to setBounds()";
+
+    bounds = newBounds;
+    isDirty = true;
     return scatterplot;
   }
   
