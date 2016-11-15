@@ -67,6 +67,14 @@ export default function(dispatch) {
   function generateVoronoi(selection, points) {
     selection.each(function() {
       var g = d3.select(this);
+
+      // filter out the points that fall outside the bounds of the graph;
+      // d3.voronoi doesn't really handle out-of-bounds points well
+      points = points.filter(function(d) {
+        var xd = scale.x.domain(), yd = scale.y.domain();
+        return !(xd[0] > xValue(d) || xValue(d) > xd[1] ||
+          yd[0] > yValue(d) || yValue(d) > yd[1]);
+      });
       
       // (1) use selectAll() instead of select() to prevent setting data on 
       //     the selection from the selector
@@ -158,17 +166,13 @@ export default function(dispatch) {
               // just select the points that are visible in the chartArea
               var activePoints = chartArea.selectAll('circle.point')
                 .filter(function(d) {
-                  if (d3.select(this).classed('hidden')) return false;
-                  var xd = scale.x.domain(), yd = scale.y.domain();
-                  return !(xd[0] > xValue(d) || xValue(d) > xd[1] ||
-                    yd[0] > yValue(d) || yValue(d) > yd[1]);
-                })
-                .data();
+                  return !d3.select(this).classed('hidden');
+                }).data();
 
               // update the voronois
               g.call(generateVoronoi, activePoints);
             } else if (!doLimitMouse) {
-              g.call(generateVoronoi, chartArea.selectAll('circle.point').data());
+              g.call(generateVoronoi, scatterData);
             }
           } 
         });
