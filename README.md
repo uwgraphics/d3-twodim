@@ -102,11 +102,11 @@ Sets the data for all components instantiated by this factory. Expects data in a
 
  Sets the function that determines the group name of a given point.  The given function *selector* takes an arbitrary data point, and returns a string representation of its group membership.  This function is shared with any instantiated scatterplot and legend components.
  
-<a name="factory_setGroupField" href="#factory_setGroupField">#</a> *twoDimFactory*.**setGroupField**(*groupField*) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/twoDimFactory.js#L85)
+<a name="factory_setGroupField" href="#factory_setGroupField">#</a> *twoDimFactory*.**setGroupField**(*groupField*) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/twoDimFactory.js#L87)
 
 Sets the categorical column name that will be used to group points.  Shorthand for calling `setGroupColumn`.  The given string *groupField* is converted to a function and is shared with any instantiated scatterplot and legend components.
  
- <a name="factory_highlight" href="#highlight">#</a> *twoDimFactory*.**highlight**(*highlightFunction*) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/twoDimFactory.js#L94)
+ <a name="factory_highlight" href="#highlight">#</a> *twoDimFactory*.**highlight**(*highlightFunction*) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/twoDimFactory.js#L127)
 
 Programmatically kicks off a `highlight` dispatch to all instantiated components from this factory.  With the given *highlightFunction*, causes the matched objects to have their 'highlighted' behavior enabled (much like a given funtion to [filter()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter)) and trigger a redraw on all linked d3-twodim components.
 

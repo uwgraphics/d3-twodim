@@ -78,12 +78,45 @@ twoDimFactory.prototype.setGroupColumn = function(groupSelector) {
 /**
  * Sets the categorical column name that will be used to group points.  Shorthand for calling
  * `setGroupColumn`.  The given string *groupField* is converted to a function and is shared with any
- * instantiated scatterplot and legend components.
+ * instantiated scatterplot and legend components.  If *groupField* is continuous, consider passing
+ * *numBins* to discretize the field into that number of equally-sized bins.
  * @param {string} groupField - The field in the data that contains the grouping category
+ * @param {number} [numBins] - Specifies that the field is continuous and should be binned into the given number of bins
  * @returns {twoDimFactory} The current factory object
  */
-twoDimFactory.prototype.setGroupField = function(groupField) {
-  return this.setGroupColumn(function(d) { return d[groupField]; });
+twoDimFactory.prototype.setGroupField = function(groupField, numBins) {
+  if (!!numBins) {
+    var data = this.createdComponents.filter(function(d) { return d.name === "scatterplot"})[0]
+      .data();
+
+    // TODO: this more or less assumes integers... consider a smart rounding strategy instead.
+    var fieldExtent = d3.extent(data.map(function(d) { return +d[groupField]; }));
+    var bandwidth = (fieldExtent[1] - fieldExtent[0]) / numBins;
+    var prevVal = 0;
+    var range = [];
+    for (var i = 0; i < numBins; i++) {
+      var start = fieldExtent[0] + i * bandwidth;
+      var startRd = Math.floor(start);
+      if (Math.floor(start) == prevVal)
+        startRd++;
+
+      var binSpan = [
+        Math.max(fieldExtent[0], startRd),
+        Math.min(fieldExtent[1], Math.floor(start + bandwidth))
+      ];
+
+      range.push(binSpan.join('-'));
+      prevVal = binSpan[1];
+    }
+
+    var binnedScale = d3.scale.quantize()
+      .domain(fieldExtent)
+      .range(range);
+
+    return this.setGroupColumn(function(d) { return binnedScale(d[groupField]); });
+  } else {
+    return this.setGroupColumn(function(d) { return d[groupField]; });
+  }
 }
 
 /**
@@ -95,14 +128,6 @@ twoDimFactory.prototype.highlight = function(highlightFunction) {
     this.dispatch.highlight(highlightFunction);
     return this;
 }
-
-
-/**
- * A function that selects the grouping field out of a datum (see `selectors` in D3.js)
- * @callback groupCallback
- * @param {Object} datum - The datum on which to operate over
- * @returns {string} The group value of this datum
- */
 
 /**
  * A function that selects relevant data objects from the currently loaded data.  The function should return true for datums to include, and false for datums to exclude.

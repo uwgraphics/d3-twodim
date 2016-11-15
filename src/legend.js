@@ -97,7 +97,7 @@ export default function(dispatch) {
     
     dispatch.on('groupUpdate.' + name, function(newGroups, newColorScale) {
       console.log("called legend dispatch (groupUpdate)");
-      groups = newGroups;
+      groups = newGroups.sort();
       colorScale = newColorScale;
       
       resetData(selection);
