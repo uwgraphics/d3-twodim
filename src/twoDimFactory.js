@@ -90,6 +90,8 @@ twoDimFactory.prototype.setGroupField = function(groupField, numBins) {
       .data();
 
     // TODO: this more or less assumes integers... consider a smart rounding strategy instead.
+    // ... could use d3-array tick's tickStep() method to generate good ticks:
+    //     <https://github.com/d3/d3-array/blob/master/src/ticks.js>
     var fieldExtent = d3.extent(data.map(function(d) { return +d[groupField]; }));
     var bandwidth = (fieldExtent[1] - fieldExtent[0]) / numBins;
     var prevVal = 0;

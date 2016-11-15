@@ -216,37 +216,41 @@ Gets or sets the [x-](#scatterplot_xField) and [y-field](#scatterplot_yField) va
 
 Gets or sets the size of the circle that represents objects in the scatterplot.
 
-<a href="scatterplot_changeDuration" href="#scatterplot_changeDuration">#</a> *scatterplot*.**changeDuration**([*duration*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L865) 
+<a name="scatterplot_changeDuration" href="#scatterplot_changeDuration">#</a> *scatterplot*.**changeDuration**([*duration*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L865) 
 
 Gets or sets the duration of animated transitions (in milliseconds) when updating the scatterplot bounds, axes, or point locations.
 
-<a href="scatterplot_pointIdentifier" href="#scatterplot_pointIdentifier">#</a> *scatterplot*.**pointIdentifier**([*newIDFunc*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L876)
+<a name="scatterplot_pointIdentifier" href="#scatterplot_pointIdentifier">#</a> *scatterplot*.**pointIdentifier**([*newIDFunc*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L876)
 
 Gets or sets the key function for the scatterplot data, see [scatterplot.data](#scatterplot_data).
 
-<a href="scatterplot_groupColumn" href="#scatterplot_groupColumn">#</a> *scatterplot*.**groupColumn**([*grpVal*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L887)
+<a name="scatterplot_groupColumn" href="#scatterplot_groupColumn">#</a> *scatterplot*.**groupColumn**([*grpVal*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L887)
 
 Gets or sets the function to extract the group membership for each data element.  By default, this function is `null`, implying that all points are members of one data series.
 
-<a href="scatterplot_colorScale" href="#scatterplot_colorScale">#</a> *scatterplot*.**colorScale**([*colorScale*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L900)
+<a name="scatterplot_colorScale" href="#scatterplot_colorScale">#</a> *scatterplot*.**colorScale**([*colorScale*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L900)
 
 Gets or sets the [d3.scale](https://github.com/d3/d3-3.x-api-reference/blob/master/Ordinal-Scales.md) object that maps the [groupColumn](#scatterplot_groupColumn) to a color.  An ordinal scale (such as [d3.scale.category20b](https://github.com/d3/d3-3.x-api-reference/blob/master/Ordinal-Scales#category20b)) can be used for categorical data, while a [quantize scale](https://github.com/d3/d3-3.x-api-reference/blob/master/Quantitative-Scales.md#quantize-scales) should be used for group values that are continuous.
 
-<a href="scatterplot_doBrush" href="#scatterplot_doBrush">#</a> *scatterplot*.**doBrush**([*doBrush*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L914)
+<a name="scatterplot_doBrush" href="#scatterplot_doBrush">#</a> *scatterplot*.**doBrush**([*doBrush*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L914)
 
 Gets or sets whether the scatterplot should implement a rectangular brushing component, similar to d3's brush.  By changing this value, the component is added to or removed from the scatterplot.  Note that activating this component with the [doZoom](#scatterplot_doZoom) option is not supported (the function of the mouse is overloaded).
 
-<a href="scatterplot_doVoronoi" href="#scatterplot_doVoronoi">#</a> *scatterplot*.**doVoronoi**([*doVoronoi*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L925)
+<a name="scatterplot_doVoronoi" href="#scatterplot_doVoronoi">#</a> *scatterplot*.**doVoronoi**([*doVoronoi*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L925)
 
-Gets or sets whether the scatterplot should generate a voronoi overlay for an easier end-user experience of interacting with points. By changing this value, the component is added to or removed from the scatterplot.
+Gets or sets whether the scatterplot should generate a voronoi overlay for an easier end-user experience of interacting with points. By changing this value, the component is added to or removed from the scatterplot. 
 
-Currently, the voronoi overlay is only activated when a subset of points are [*highlighted*](#factory_hightlight*).  Generated voronoi cells are linked to the points they represent, and bound mouse events to the scatterplot are rebound to these generated voronoi cells.
+Generated voronoi cells are linked to the points they represent, and bound mouse events to the scatterplot are rebound to these generated voronoi cells. By default, a voronoi overlay is created for all points. To only activate the voronoi overlay for highlighted points (e.g., for performance reasons), pass `true` to [squashMouseEvents()](#scatterplot_squashMouseEvents)`.
 
-<a href="scatterplot_doZoom" href="#scatterplot_doZoom">#</a> *scatterplot*.**doZoom**([*doZoom*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L937)
+<a name="scatterplot_doZoom" href="#scatterplot_doZoom">#</a> *scatterplot*.**doZoom**([*doZoom*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L937)
 
 Gets or sets whether the scatterplot should support panning and zooming with the chart area.  By changing this value, this functionality is added to or removed from the scatterplot.  Note that activating this component with the [doBrush](#scatterplot_doBrush) option is not supported (the function of the mouse is overloaded).  
+<a name="scatterplot_squashMouseEvents" href="#scatterplot_squashMouseEvents">#</a> *scatterplot*.**squashMouseEvents**([*doLimitMouse*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1006)
 
-Currently, a SVG clip mask hides points that fall outside of the chart area (this happens by default on canvas).
+Gets or sets whether mouse events should be fired when no points are highlighted.  With the default value of `false`, all point-based mouse events will be fired.  When set to true, this disables voronoi generation and firing mouse events when no points are highlighted, which can result in great redraw performance savings.
+
+
+Currently, a SVG clip mask hides points that fall outside of the chart area (this happens by default on Canvas and WebGL).
 
 ### Legend
 

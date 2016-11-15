@@ -7,6 +7,9 @@ tape("Scatterplot has the expected defaults", function(test) {
   test.equal(s.width(), 1);
   test.equal(s.circleSize(), 3);
   test.equal(s.doBrush(), false);
+  test.equal(s.doZoom(), false);
+  test.equal(s.squashMouseEvents(), false);
+  test.equal(s.doVoronoi(), false);
   test.equal(s.changeDuration(), 500);
   test.deepEqual(s.labels(), ["", ""]);
   test.equal(s.renderType(), 'svg');

@@ -30,10 +30,13 @@ export default function(dispatch) {
   var doBrush = false;
   var doVoronoi = false;
   var doZoom = false;
+  var doLimitMouse = false;
 
   var brush = undefined;
   var voronoi = undefined;
   var zoomBehavior = undefined;
+
+  var distType = undefined;
   
   var duration = 500;
 
@@ -164,6 +167,8 @@ export default function(dispatch) {
 
               // update the voronois
               g.call(generateVoronoi, activePoints);
+            } else if (!doLimitMouse) {
+              g.call(generateVoronoi, chartArea.selectAll('circle.point').data());
             }
           } 
         });
@@ -369,6 +374,9 @@ export default function(dispatch) {
             .x(function(d) { return scale.x(xValue(d)); })
             .y(function(d) { return scale.y(yValue(d)); })
             .clipExtent([[0, 0], [width, height]]);
+
+          if (!doLimitMouse)
+            chartArea.call(generateVoronoi, scatterData);
         }
       }
         
@@ -700,7 +708,10 @@ export default function(dispatch) {
             allPoints.sort(function(a,b) { return d3.ascending(a.orig_index, b.orig_index); });
             
             if (doVoronoi) {
-              selection.selectAll('g.voronoi').selectAll('path').remove();
+              if (doLimitMouse)
+                selection.selectAll('g.voronoi').selectAll('path').remove();
+              else
+                selection.call(generateVoronoi, scatterData);
             }
           }
           break;
@@ -959,7 +970,10 @@ export default function(dispatch) {
   }
   
   /**
-   * Tells the scatterplot to generate a voronoi based on the highlighted points (helpful for binding hover events to)
+   * Tells the scatterplot to generate a voronoi overlay to make point-based mouse 
+   * events easier for the viewer. By default, a voronoi overlay will be created for all 
+   * points; pass `true` to `squashMouseEvents()` to disable the overlay when no points are 
+   * highlighted for performance reasons. 
    * @default false (no voronoi will be generated when points are highlighted)
    * @param {boolean} [newVoronoi] - Whether or not to update a voronoi diagram based on highlighted points
    */
@@ -978,6 +992,26 @@ export default function(dispatch) {
   scatterplot.doZoom = function(newZoom) {
     if (!arguments.length) return doZoom;
     doZoom = newZoom;
+    return scatterplot;
+  }
+
+  /**
+   * Tells the scatterplot to supress mouse interaction when no points are highlighted.  
+   * With the default value of `false`, all point-based mouse events will be fired.  When set to 
+   * true, this disables voronoi generation and firing mouse events when no points are highlighted,
+   * which can result in great redraw performance savings.
+   * @default false (mouse events will be fired, regardless whether or not points are highlighted)
+   * @param {boolean} [newSquash] - Whether mouse events should be supressed when no points are highlighted 
+   */
+  scatterplot.squashMouseEvents = function(newSquash) {
+    if (!arguments.length) return doLimitMouse;
+    doLimitMouse = !!newSquash;
+    return scatterplot;
+  }
+
+  scatterplot.showDistribution = function(newDistType) {
+    if (!arguments.length) return distType;
+    distType = newDistType;
     return scatterplot;
   }
   
