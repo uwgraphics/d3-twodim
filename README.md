@@ -92,7 +92,7 @@ Creates a d3-twodim factory, where all instantiated objects are linked with the 
 
 Creates a d3-twodim component of the given type, and returns the object representing the requested component.  The **type** field is required in the *options* anonymous object, and *component_type* must be a one string of *scatterplot*, *objectlist*, *dropdown*, or *legend*.
 
-If you are creating a *scatterplot* object, you may also add the **render** field, which can be one string of the following: *svg*, *canvas*, or *webgl*.  Scatterplots will default to *svg* rendering.
+If you are creating a *scatterplot* object, you may also add the **render** field, which can be one string of the following: *svg*, *canvas*, *webgl*, or *splatterplot*.  Scatterplots will default to *svg* rendering.
 
 <a name="factory_setData" href="#factory_setData">#</a> *twoDimFactory*.**setData**(*data*) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/twoDimFactory.js#L54)
 
@@ -114,17 +114,19 @@ Programmatically kicks off a `highlight` dispatch to all instantiated components
 
 The scatterplot object is king, queen, bishop, and rook.  While there is a small suite of options to change currently, the scatterplot object should be designed to best support the task at hand.  With browser performance limitations of SVG, using WebGL rendering can be beneficial in situations with many points (say, over 20k).  In the future, this object will support other scatterplot-like transformations, such as binning, subsampling, density estimation, etc.  If you have ideas, please [file an issue](https://github.com/uwgraphics/d3-twodim/issues).
 
+WebGL support is under development.  We are toying with the idea of providing scatterplot components, which share the same set of WebGL utilities, but with minimial overhead to implement other WebGL scatterplot implementations.  Currently, *splatterplot* is a valid render type, which will activate the [splatterplot.js](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot_components/splatterplot.js) component.  Feel free to add your implementation as a component through a pull request.
+
 **Limitations** (v0.5): Currently, only SVG is fully featured.  Canvas and WebGL rendering modes lack interaction support, including event handling and `highlight` dispatches.
 
 <a name="scatterplot" href="#scatterplot">#</a> d3_twodim.**scatterplot**(*dispatch*) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js)
 
 Constructs a representation of a scatterplot, attached to the given *dispatch* object to receive `highlight` and `groupUpdate` dispatches. Like other [D3 reusable components](https://bost.ocks.org/mike/chart/), all functions return this object for method chaining if at least one argument is supplied.
 
-Should only be called indirectly by using d3_twodim.twoDimFactory, e.g. 
+Should only be called indirectly by using d3_twodim.twoDimFactory using the [createComponent](#factory_createComponent) method, e.g. 
 
 ```js
 var factory = new d3_twodim.twoDimFactory();
-var scatter = factory.createComponent({type: "scatterplot"});
+var scatter = factory.createComponent({type: "scatterplot", render: "webgl"});
 ```
 
 <a name="scatterplot_scatterplot" href="#scatterplot_scatterplot">#</a> *scatterplot*(*selection*, *name*)  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L616)
@@ -157,6 +159,9 @@ twoDFactory.createComponent({type: 'scatterplot'})
     tooltip.hide();
   });
 ```
+
+Currently, a SVG clip mask hides points that fall outside of the chart area (this happens by default on Canvas and WebGL).
+
 
 <a name="scatterplot_data" href="#scatterplot_data">#</a> *scatterplot*.**data**(*newData*[, *key*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L679)
 
@@ -240,17 +245,15 @@ Gets or sets whether the scatterplot should implement a rectangular brushing com
 
 Gets or sets whether the scatterplot should generate a voronoi overlay for an easier end-user experience of interacting with points. By changing this value, the component is added to or removed from the scatterplot. 
 
-Generated voronoi cells are linked to the points they represent, and bound mouse events to the scatterplot are rebound to these generated voronoi cells. By default, a voronoi overlay is created for all points. To only activate the voronoi overlay for highlighted points (e.g., for performance reasons), pass `true` to [squashMouseEvents()](#scatterplot_squashMouseEvents)`.
+Generated voronoi cells are linked to the points they represent, and bound mouse events to the scatterplot are rebound to these generated voronoi cells. By default, a voronoi overlay is created for all points. To only activate the voronoi overlay for highlighted points (e.g., for performance reasons), pass `true` to [squashMouseEvents()](#scatterplot_squashMouseEvents).
 
 <a name="scatterplot_doZoom" href="#scatterplot_doZoom">#</a> *scatterplot*.**doZoom**([*doZoom*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L937)
 
-Gets or sets whether the scatterplot should support panning and zooming with the chart area.  By changing this value, this functionality is added to or removed from the scatterplot.  Note that activating this component with the [doBrush](#scatterplot_doBrush) option is not supported (the function of the mouse is overloaded).  
+Gets or sets whether the scatterplot should support panning and zooming with the chart area.  By changing this value, this functionality is added to or removed from the scatterplot.  Note that activating this component with the [doBrush](#scatterplot_doBrush) option is not supported (the function of the mouse is overloaded).
+
 <a name="scatterplot_squashMouseEvents" href="#scatterplot_squashMouseEvents">#</a> *scatterplot*.**squashMouseEvents**([*doLimitMouse*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1006)
 
 Gets or sets whether mouse events should be fired when no points are highlighted.  With the default value of `false`, all point-based mouse events will be fired.  When set to true, this disables voronoi generation and firing mouse events when no points are highlighted, which can result in great redraw performance savings.
-
-
-Currently, a SVG clip mask hides points that fall outside of the chart area (this happens by default on Canvas and WebGL).
 
 ### Legend
 
