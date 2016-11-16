@@ -27,6 +27,7 @@ export default function(dispatch) {
   var ptSize = 3;
   var colorScale = null;
   var ptIdentifier = function(d, i) { return "" + d.orig_index; };
+  var hiddenClass = "point-hidden";
   
   var doBrush = false;
   var doVoronoi = false;
@@ -178,11 +179,11 @@ export default function(dispatch) {
         .on("zoomend", function() { 
           if (doVoronoi) {            
             // if no points are hidden, don't draw voronois
-            if (g.selectAll('circle.hidden').size() !== 0) {
+            if (g.selectAll('circle.' + hiddenClass).size() !== 0) {
               // just select the points that are visible in the chartArea
               var activePoints = chartArea.selectAll('circle.point')
                 .filter(function(d) {
-                  return !d3.select(this).classed('hidden');
+                  return !d3.select(this).classed(hiddenClass);
                 }).data();
 
               // update the voronois
@@ -404,7 +405,7 @@ export default function(dispatch) {
         
       function brushmove(p) {
         var e = brush.extent();
-        g.selectAll("circle").classed("hidden", function(d, i) {
+        g.selectAll("circle").classed(hiddenClass, function(d, i) {
           if (e[0][0] > xValue(d) || xValue(d) > e[1][0] || e[0][1] > yValue(d) || yValue(d) > e[1][1])
             return true;
             
@@ -434,7 +435,7 @@ export default function(dispatch) {
             localDispatch.mouseout();
           
           // removes all highlights for all linked components 
-          g.selectAll('.hidden').classed('hidden', false);
+          g.selectAll('.' + hiddenClass).classed(hiddenClass, false);
           dispatch.highlight(false);
         }
       }
@@ -703,8 +704,8 @@ export default function(dispatch) {
         case 'svg': 
           var allPoints = selection.selectAll('circle');
           if (typeof selector === "function") {
-            allPoints.classed('hidden', true);
-            allPoints.filter(selector).classed('hidden', false);
+            allPoints.classed(hiddenClass, true);
+            allPoints.filter(selector).classed(hiddenClass, false);
             
             // generate relevant voronoi
             if (doVoronoi) {
@@ -726,7 +727,7 @@ export default function(dispatch) {
               }
             });
           } else if (!selector) {
-            allPoints.classed('hidden', false);
+            allPoints.classed(hiddenClass, false);
             allPoints.sort(function(a,b) { return d3.ascending(a.orig_index, b.orig_index); });
             
             if (doVoronoi) {
@@ -997,7 +998,8 @@ export default function(dispatch) {
   
   /**
    * Tells the scatterplot to support a D3 brush component.  
-   * Points not selected by the brush will have the `.hidden` CSS class selector added.
+   * Points not selected by the brush will have the `hiddenClass` (default: 'point-hidden') CSS class
+   * selector added.
    * @default false (no brush will be added to the scatterplot)
    * @todo Currently unable to enable both zoom and brush concurrently (mouse overloading)
    * @param {boolean} [newBrush] Whether or not to add a brush to the scatterplot.
@@ -1045,6 +1047,18 @@ export default function(dispatch) {
   scatterplot.squashMouseEvents = function(newSquash) {
     if (!arguments.length) return doLimitMouse;
     doLimitMouse = !!newSquash;
+    return scatterplot;
+  }
+
+  /**
+   * Changes the CSS class that is set when points are hidden. This can help avoid CSS namespace
+   * collisions if the default class `point-hidden` is taken by an external CSS dependency.
+   * @default `"point-hidden"` (you should style this CSS class to dim non-highlighted points)
+   * @param {string} [newClass] - All hidden points will have this CSS class applied
+   */
+  scatterplot.hiddenClass = function(newClass) {
+    if (!arguments.length) return hiddenClass;
+    hiddenClass = newClass;
     return scatterplot;
   }
 

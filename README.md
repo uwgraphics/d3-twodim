@@ -162,6 +162,8 @@ twoDFactory.createComponent({type: 'scatterplot'})
 
 Currently, a SVG clip mask hides points that fall outside of the chart area (this happens by default on Canvas and WebGL).
 
+To highlight points on the scatterplot, pass a filter selection function to the [*twoDimFactory.highlight()*](#twoDimFactory_highlight) function.  Those points that are not selected by this function will have the CSS class "point-hidden" applied to them (which should be styled by the user). This class name can be changed by the scatterplot method [*hiddenClass()*](#scatterplot_hiddenClass).
+
 
 <a name="scatterplot_data" href="#scatterplot_data">#</a> *scatterplot*.**data**(*newData*[, *key*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L679)
 
@@ -258,6 +260,11 @@ Gets or sets whether the scatterplot should support panning and zooming with the
 <a name="scatterplot_squashMouseEvents" href="#scatterplot_squashMouseEvents">#</a> *scatterplot*.**squashMouseEvents**([*doLimitMouse*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1006)
 
 Gets or sets whether mouse events should be fired when no points are highlighted.  With the default value of `false`, all point-based mouse events will be fired.  When set to true, this disables voronoi generation and firing mouse events when no points are highlighted, which can result in great redraw performance savings.
+
+<a name="scatterplot_hiddenClass" href="#scatterplot_hiddenClass">#</a> *scatterplot*.**hiddenClass**([*newClass*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1059)
+
+Gets or sets the CSS class that is set when points are hidden (applied to those points that are not explicitly highlighted). This can help avoid CSS namespace collisions if the default class `point-hidden` is taken by an external CSS dependency.
+
 
 ### Legend
 
