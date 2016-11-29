@@ -1,6 +1,5 @@
 import scatterplot_webgl from "./scatterplot_webgl";
 import splatterplot from "./scatterplot_components/splatterplot";
-// import splatter_new from "./scatterplot_components/splatter_new.js";
 
 export default function(dispatch) {
   // 'global' declarations go here
@@ -12,38 +11,41 @@ export default function(dispatch) {
   
   var width = 1;
   var height = 1;
-  var xValue = function(d) { return +d[0]; };
-  var yValue = function(d) { return +d[1]; };
-  var scale = { x: undefined, y: undefined };
-  var bounds = [[], []];
-  var name = ["", ""];
+  var xValue = function(d) { return +d[0]; }; // the x-value selector
+  var yValue = function(d) { return +d[1]; }; // the y-value selector
+  var scale = { x: undefined, y: undefined }; // holds the x- and y-axis scales
+  var bounds = [[], []];  // holds the current bounds; usually ahead of scale (see `setGlobals`)
+  var name = ["", ""];    // holds the current x- and y-axis labels 
 
   var availableFields = [];
   var areFieldsSet = false;
   
-  var grpValue = null;
+  var grpValue = null;          // the groupValue selector
   var foundGroups = ["undefined"];
   
   var ptSize = 3;
-  var colorScale = null;
+  var colorScale = null;        // maps grpValue to a color
   var ptIdentifier = function(d, i) { return "" + d.orig_index; };
   var hiddenClass = "point-hidden";
   
-  var doBrush = false;
-  var doVoronoi = false;
-  var doZoom = false;
-  var doLimitMouse = false;
+  var doBrush = false;          // should we add a brush?
+  var doVoronoi = false;        // should we construct a voronoi overlay?
+  var doZoom = false;           // should we support zoom+pan?
+  var doLimitMouse = false;     // should we limit mouse interaction to highlighted pts only?
+  var autoBounds = true;        // should we auto-scale the graph if data selectors change?
 
+  // holds global d3 objects
   var brush = undefined;
   var voronoi = undefined;
   var zoomBehavior = undefined;
 
   var distType = undefined;
   
-  var duration = 500;
+  var duration = 500;           // the default d3.transition duration
 
-  var isDirty = true;
-  var extScatterObj = undefined;
+  var isDirty = true;           // have data selectors or bounds changed?
+  var selectorChanged = true;   // have data selectors changed? 
+  var extScatterObj = undefined;// holds the external scatterplot component for this object 
   
   // the shared scales/groups needed by all rendering mechanisms
   function setGlobals(data) {
@@ -61,10 +63,11 @@ export default function(dispatch) {
       scale.y = d3.scale.linear();
     } 
     
-    // set the axes' domain, iff existing domain is empty
-    if (!bounds[0].length) {
+    // set the axes' domain, iff existing domain is empty OR 
+    // data selectors have changed and representation should auto-scale
+    if (!bounds[0].length || (selectorChanged && autoBounds)) {
       var xd = d3.extent(data, function(e) { return +xValue(e); });
-      var yd = d3.extent(data, function(e) { return +yValue(e); });
+      var yd = d3.extent(data, function(e) { return +yValue(e); }); 
 
       xd = xd.map(function(d, i) { 
         return d + (i % 2 == 0 ? -1 : 1) * ((xd[1] - xd[0]) / 20); 
@@ -655,7 +658,6 @@ export default function(dispatch) {
       // explicitly update data and call a render on the WebGL helper
       updateWebGLdata(scatterData);
       selection.call(extScatterObj.circleSize(ptSize).setColorScale(colorScale), isDirty);
-      isDirty = false;
 
       // update the SVG overlay
       updateSVGOverlay(container, true);
@@ -669,7 +671,41 @@ export default function(dispatch) {
       console.warn("tried to update webgl data before initializing canvas");
   }
 
+  // check if all data is OK; abort render if this check fails
+  // NOTE: iterating over all data (e.g., 50k items) takes <20ms, so perf is okay
+  function checkDataOkay() {
+    if (!areFieldsSet) {
+      console.warn("No fields set to read data from (try calling `fields`?)");
+      return false;
+    }
+    
+    // is x continuous? 
+    if (scatterData.some(function(d) { return isNaN(xValue(d)); })) {
+      console.warn("Given x-value function does not return a continuous number for all fields. First value is '%s'", xValue(scatterData[0]));
+      return false;
+    } 
+    
+    // is y continuous?
+    if (scatterData.some(function(d) { return isNaN(yValue(d)); })) {
+      console.warn("Given y-value function does not return a continuous number for all fields. First value is '%s'", yValue(scatterData[0]));
+      return false;
+    } 
+    
+    // does grpValue select a valid field?
+    if (grpValue != null && grpValue(scatterData[0]) === undefined) {
+      console.warn("Given group function does not select a valid field");
+      return false;
+    } 
+
+    return true;
+  }
+
   function render(selection) {
+    if (!checkDataOkay()) {
+      console.error("Unable to read data, aborting render for scatterplot '%s'.  There may be more information preceding this message", selectionName);
+      return;
+    }
+
     switch (rendering) {
       case 'svg':
         redrawSVG(selection);
@@ -684,6 +720,10 @@ export default function(dispatch) {
       default: 
         throw "Unknown renderType passed to scatterplot: got " + rendering;
     }
+
+    // reset dirty flags
+    selectorChanged = false;
+    isDirty = false;
   }
   
   /**
@@ -745,7 +785,8 @@ export default function(dispatch) {
   }
   
   /**
-   * Gets or sets the data bound to points in the scatterplot.  Following D3.js convention, this should be an array of anonymous objects.  Generally set all at once by the twoDFactory.setData() method
+   * Gets or sets the data bound to points in the scatterplot.  Following D3.js convention, this should be
+   * an array of anonymous objects.  Generally set all at once by the twoDFactory.setData() method
    * @default Empty array: []
    * @param {Object[]} The data of the scatterplot.  Set the `.x()` and `.y()` accessors for the x- and y-dimensions of the scatterplot
    * @param {function(Object[]): string} The key function for the data (similar to the key function in `d3.data([data, [key]])`)
@@ -754,7 +795,8 @@ export default function(dispatch) {
     if (!arguments.length) return scatterData;
     scatterData = newData;
 
-    // TODO: test if there are <2 fields available, very likely that the code following will fail in those cases
+    // TODO: test if there are <2 fields available, 
+    // very likely that the code following will fail in those cases
 
     // if datums are objects, collect the available field names
     if (!Array.isArray(newData[0])) {
@@ -782,7 +824,8 @@ export default function(dispatch) {
   };
   
   /**
-   * Gets or sets the type of rendering mechanism.  One of "svg", "canvas", or "webgl".  Subsequent calls of `scatterplot` on a selection will populate the selections with the given rendering type
+   * Gets or sets the type of rendering mechanism.  One of "svg", "canvas", or "webgl".  Subsequent calls
+   * of `scatterplot` on a selection will populate the selections with the given rendering type
    */
   scatterplot.renderType = function(renderType) {
     if (!arguments.length) return rendering;
@@ -823,6 +866,7 @@ export default function(dispatch) {
     if (!arguments.length) return xValue;
     xValue = xVal;
     isDirty = true;
+    selectorChanged = true;
     return scatterplot;
   }
   
@@ -835,6 +879,7 @@ export default function(dispatch) {
     if (!arguments.length) return yValue;
     yValue = yVal;
     isDirty = true;
+    selectorChanged = true;
     return scatterplot;
   }
   
@@ -873,7 +918,8 @@ export default function(dispatch) {
   }
   
   /**
-   * Convenience method to set the field for the x-dimension (given the row is an object and not an array), and co-occurrently sets the xLabel
+   * Convenience method to set the field for the x-dimension (given the row is an object and not an array),
+   * and co-occurrently sets the xLabel
    * @default Function that selects the value for the x-dimension (e.g. d[0])
    * @param {string} [xField] - The field from which to read the continuous value for the x-dimension
    */
@@ -883,12 +929,14 @@ export default function(dispatch) {
     xValue = function(d) { return +d[xField]; };
     areFieldsSet = true;
     isDirty = true;
+    selectorChanged = true;
 
     return scatterplot; 
   }
   
   /**
-   * Convenience method to set the field for the y-dimension (given the row is an object and not an array), and co-occurrently sets the yLabel
+   * Convenience method to set the field for the y-dimension (given the row is an object and not an array),
+   * and co-occurrently sets the yLabel
    * @default Function that selects the value for the y-dimension (e.g. d[0])
    * @param {string} [yField] - The field from which to read the continuous value for the y-dimension
    */
@@ -898,12 +946,14 @@ export default function(dispatch) {
     yValue = function(d) { return +d[yField]; };
     areFieldsSet = true;
     isDirty = true;
+    selectorChanged = true;
 
     return scatterplot;
   }
   
   /**
-   * Convenience method to set fields for both dimensions (given that rows are objects and not arrays), and co-occurrently sets the labels for the two dimensions
+   * Convenience method to set fields for both dimensions (given that rows are objects and not arrays), 
+   * and co-occurrently sets the labels for the two dimensions
    * @default Blank values for axis labels
    * @param {string[]} [fields] - Array of fields for the x- and y-axis, respectively
    */
@@ -917,6 +967,7 @@ export default function(dispatch) {
     yValue = function(d) { return +d[name[1]]; };
     areFieldsSet = true;
     isDirty = true;
+    selectorChanged = true;
     
     return scatterplot;
   }
@@ -934,7 +985,8 @@ export default function(dispatch) {
   }
   
   /**
-   * Gets or sets the duration of animated transitions (in milliseconds) when updating the scatterplot bounds, axes, or point locations
+   * Gets or sets the duration of animated transitions (in milliseconds) when updating the scatterplot 
+   * bounds, axes, or point locations
    * @default Transitions have a duration of 500ms
    * @param {number} [newDuration] - The new duration of all animated transitions.
    */
@@ -964,6 +1016,7 @@ export default function(dispatch) {
     if (!arguments.length) return grpVal;
     grpValue = grpVal;
     isDirty = true;
+    selectorChanged = true;
     return scatterplot;
   }
   
@@ -1059,6 +1112,20 @@ export default function(dispatch) {
   scatterplot.hiddenClass = function(newClass) {
     if (!arguments.length) return hiddenClass;
     hiddenClass = newClass;
+    return scatterplot;
+  }
+
+  /**
+   * Tells the scatterplot to update the bounds of the representation whenever data accessors 
+   * change.  If set to false, the user must manually update bounds by calling `bounds()`.
+   * @default `autoUpdateBounds` is `true`; the scatterplot updates the bounds when accessors are
+   * changed.
+   * @param {boolean} [updateBounds] - Sets whether the scatterplot should update bounds when 
+   * accessors are changed 
+   */
+  scatterplot.autoUpdateBounds = function(updateBounds) {
+    if (!arguments.length) return autoBounds;
+    autoBounds = updateBounds;
     return scatterplot;
   }
 

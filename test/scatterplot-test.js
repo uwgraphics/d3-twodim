@@ -12,6 +12,7 @@ tape("Scatterplot has the expected defaults", function(test) {
   test.equal(s.doVoronoi(), false);
   test.equal(s.changeDuration(), 500);
   test.equal(s.hiddenClass(), "point-hidden");
+  test.equal(s.autoUpdateBounds(), true);
   test.deepEqual(s.labels(), ["", ""]);
   test.equal(s.renderType(), 'svg');
   test.end();

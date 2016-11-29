@@ -265,6 +265,10 @@ Gets or sets whether mouse events should be fired when no points are highlighted
 
 Gets or sets the CSS class that is set when points are hidden (applied to those points that are not explicitly highlighted). This can help avoid CSS namespace collisions if the default class `point-hidden` is taken by an external CSS dependency.
 
+<a name="scatterplot_autoUpdateBounds" href="#scatterplot_autoUpdateBounds">#</a> *scatterplot*.**autoUpdateBounds**([*updateBounds*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1126)
+
+Gets or sets the boolean value that determines whether the scatterplot should automatically rescale its bounds whenever the data accessors change (i.e., the x-value, y-value, or group value changes).  The default is true; the scatterplot will rescale when new accessors are chosen and a redraw triggered.  If set to false, the user is responsible for calling the [bounds()](#scatterplot_bounds) function and triggering a redraw to rescale the scatterplot.
+
 
 ### Legend
 
