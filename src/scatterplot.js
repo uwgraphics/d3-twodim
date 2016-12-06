@@ -33,6 +33,7 @@ export default function(dispatch) {
   var doZoom = false;           // should we support zoom+pan?
   var doLimitMouse = false;     // should we limit mouse interaction to highlighted pts only?
   var autoBounds = true;        // should we auto-scale the graph if data selectors change?
+  var hiddenSupress = true;     // should we supress mouse events for non-highlighted points?
 
   // holds global d3 objects
   var brush = undefined;
@@ -190,10 +191,15 @@ export default function(dispatch) {
             // if no points are hidden, don't draw voronois
             if (g.selectAll('circle.' + hiddenClass).size() !== 0) {
               // just select the points that are visible in the chartArea
-              var activePoints = chartArea.selectAll('circle.point')
-                .filter(function(d) {
-                  return !d3.select(this).classed(hiddenClass);
-                }).data();
+              var activePoints;
+              if (hiddenSupress) {
+                var activePoints = chartArea.selectAll('circle.point')
+                  .filter(function(d) {
+                    return !d3.select(this).classed(hiddenClass);
+                  }).data();
+              } else {
+                activePoints = scatterData;
+              }
 
               // update the voronois
               g.call(generateVoronoi, activePoints);
@@ -761,7 +767,9 @@ export default function(dispatch) {
             
             // generate relevant voronoi
             if (doVoronoi) {
-              selection.call(generateVoronoi, scatterData.filter(selector));
+              selection.call(
+                generateVoronoi, 
+                hiddenSupress ? scatterData.filter(selector) : scatterData);
             }
             
             // reorder points to bring highlighted points to the front
@@ -1102,16 +1110,32 @@ export default function(dispatch) {
   }
 
   /**
-   * Tells the scatterplot to supress mouse interaction when no points are highlighted.  
-   * With the default value of `false`, all point-based mouse events will be fired.  When set to 
-   * true, this disables voronoi generation and firing mouse events when no points are highlighted,
-   * which can result in great redraw performance savings.
+   * Tells the scatterplot to whether or not to supress mouse interaction when no points are 
+   * highlighted. With the default value of `false`, all point-based mouse events will be fired.
+   * When set to true, this disables voronoi generation and firing mouse events when no points are
+   * highlighted, which can result in great redraw performance savings.
    * @default false (mouse events will be fired, regardless whether or not points are highlighted)
    * @param {boolean} [newSquash] - Whether mouse events should be supressed when no points are highlighted 
    */
   scatterplot.squashMouseEvents = function(newSquash) {
     if (!arguments.length) return doLimitMouse;
     doLimitMouse = !!newSquash;
+    return scatterplot;
+  }
+
+
+  /**
+   * Tells the scatterplot whether or not to supress mouse events for hidden (non-highlighted)
+   * points. By default, this is `true`, meaning that mouse events will not be fired for those
+   * points and associated voronois if those points are hidden by a highlight event. By changing
+   * this value to `false`, all points can be targeted by mouse events, regardless of the point 
+   * state.
+   * @default true (mouse events will only be fired for highlighted points)
+   * @param {boolean} [newSupress] - Whether mouse events should be supressed for hidden points
+   */
+  scatterplot.supressHiddenPoints = function(newSurpress) {
+    if (!arguments.length) return hiddenSupress;
+    hiddenSupress = newSurpress;
     return scatterplot;
   }
 

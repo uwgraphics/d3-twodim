@@ -261,6 +261,11 @@ Gets or sets whether the scatterplot should support panning and zooming with the
 
 Gets or sets whether mouse events should be fired when no points are highlighted.  With the default value of `false`, all point-based mouse events will be fired.  When set to true, this disables voronoi generation and firing mouse events when no points are highlighted, which can result in great redraw performance savings.
 
+<a name="scatterplot_supressHiddenPoints" href="#scatterplot_supressHiddenPoints">#</a>
+ *scatterplot*.**supressHiddenPoints**([*newSupress*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1136)
+
+Gets or sets whether the scatterplot supresses mouse events for hidden (non-highlighted) points. By default, this is `true`, meaning that mouse events will not be fired for those points and associated voronois if those points are hidden by a highlight event. By changing this value to `false`, all points can be targeted by mouse events, regardless of the point state.
+
 <a name="scatterplot_hiddenClass" href="#scatterplot_hiddenClass">#</a> *scatterplot*.**hiddenClass**([*newClass*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1059)
 
 Gets or sets the CSS class that is set when points are hidden (applied to those points that are not explicitly highlighted). This can help avoid CSS namespace collisions if the default class `point-hidden` is taken by an external CSS dependency.
