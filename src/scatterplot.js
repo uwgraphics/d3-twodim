@@ -7,7 +7,7 @@ export default function(dispatch) {
   var selectionName = undefined;
   var scatterData = [];
   var scatterDataKey = undefined;
-  var localDispatch = d3.dispatch('mouseover', 'mouseout', 'mousedown');
+  var localDispatch = d3.dispatch('mouseover', 'mouseout', 'mousedown', 'click');
   
   var width = 1;
   var height = 1;
@@ -140,6 +140,9 @@ export default function(dispatch) {
             if (localDispatch.hasOwnProperty('mousedown'))
               localDispatch.mousedown(d);
           }
+        }).on('click', function(d) {
+          if (localDispatch.hasOwnProperty('click') && !d3.event.defaultPrevented)
+            localDispatch.click(d);
         });
 
       // update current voronois?
@@ -179,7 +182,10 @@ export default function(dispatch) {
           if (localDispatch.hasOwnProperty('mouseout')) 
             localDispatch.mouseout(d);
         })
-        .on("zoomend", function() { 
+        .on("zoomend", function() {
+          // update bounds object
+          bounds = [scale.x.domain(), scale.y.domain()];
+           
           if (doVoronoi) {            
             // if no points are hidden, don't draw voronois
             if (g.selectAll('circle.' + hiddenClass).size() !== 0) {
@@ -370,6 +376,10 @@ export default function(dispatch) {
               if (localDispatch.hasOwnProperty('mousedown'))
                 localDispatch.mousedown(d);
             }
+          })
+          .on('click', function(d) {
+            if (localDispatch.hasOwnProperty('click') && !d3.event.defaultPrevented)
+              localDispatch.click(d);
           });
           
         // if transition was requested, add it into the selection
@@ -617,6 +627,8 @@ export default function(dispatch) {
         // trigger a redraw
         // TODO: there's got to be a better way to select the container...
         render(d3.select(svg.node().parentNode.parentNode));
+        console.log("zoom/pan -- x: " + bounds[0] + ", y: " + bounds[1]);
+        bounds = [scale.x.domain(), scale.y.domain()];
       }).on("zoomstart", function(d) {
         if (localDispatch.hasOwnProperty('mouseout'))
           localDispatch.mouseout(d);

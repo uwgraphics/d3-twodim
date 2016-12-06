@@ -57,7 +57,7 @@ svg.append('g')
   .call(scatterplot2, '.scatterplot2');
 ```
 
-There are several other options you can add to enhance the functionality and interaction between your d3-twodim components.  The scatterplot component in particular exposes `mouse{over,down,out}` events to enable custom interaction, such as showing tooltips.
+There are several other options you can add to enhance the functionality and interaction between your d3-twodim components.  The scatterplot component in particular exposes `mouse{over,down,out}` and `click` events to enable custom interaction, such as showing tooltips.
 
 ```javascript
 var scatterplot = twoDFactory.createComponent({type: 'scatterplot'})
@@ -143,7 +143,7 @@ For *svg* rendering, the selection is expected to be a `<g>` SVG element, create
 
 For *canvas* and *webgl* elements, the selection is expected to be some sort of block container, such as `<div>`.  Any existing SVG or canvas elements within this container will be removed.  To support interaction, [initializeCanvasLayers()](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L486) is called to construct and align an SVG component directly on top of a canvas element.
 
-Mouse events `mouseover`, `mousedown`, and `mouseout` for drawn points are exposed on the scatterplot selection.  You may bind listeners to these functions, where the listener will be called with `this` as the interacted point, the first argument `d` is the data object bound to that point, and `mouseover`'s second argument `ptPos` describing the location of the point within the scatterplot (helpful for tooltips or prompting an interface change).
+Mouse events `mouseover`, `mousedown`, `mouseout`, and `click` for drawn points are exposed on the scatterplot selection.  You may bind listeners to these functions, where the listener will be called with `this` as the interacted point, the first argument `d` is the data object bound to that point, and `mouseover`'s second argument `ptPos` describing the location of the point within the scatterplot (helpful for tooltips or prompting an interface change).
 
 An example of binding a listener to these events:
 
