@@ -55,6 +55,12 @@ export default function(dispatch) {
       ["undefined"] : 
       d3.set(data.map(function(e) { return grpValue(e); })).values();
     console.log("found %d groups", foundGroups.length);
+<<<<<<< HEAD
+=======
+
+    // colorScale = colorScale || d3.scale.category10();
+    // colorScale.domain(foundGroups);
+>>>>>>> 1b11ea82413c0f311a802f1d85c90bb56249716a
     
     // try to be smart about not clobbering color scales.  
     // if no color scale exists, create one and set the domain
