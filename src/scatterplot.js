@@ -56,9 +56,27 @@ export default function(dispatch) {
     foundGroups = grpValue == null ? 
       ["undefined"] : 
       d3.set(data.map(function(e) { return grpValue(e); })).values();
-    colorScale = colorScale || d3.scale.category10();
-    colorScale.domain(foundGroups);
     console.log("found %d groups", foundGroups.length);
+    
+    // try to be smart about not clobbering color scales.  
+    // if no color scale exists, create one and set the domain
+    if (!colorScale) {
+      colorScale = d3.scale.category10();
+      colorScale.domain(foundGroups);
+    } else {
+      var existingDomain = colorScale.domain();
+      
+      // if one exists, and the foundGroups contains a superset of the scale domain, add the new groups
+      foundGroups.forEach(function(grp) {
+        if (existingDomain.indexOf(grp) == -1) {
+          existingDomain.append(grp);
+        }
+      });
+
+      colorScale.domain(existingDomain);
+    }
+    
+    // regardless of what happens, make sure all color-based components are updated
     dispatch.groupUpdate(foundGroups, colorScale);
     
     if (scale.x === undefined) {
