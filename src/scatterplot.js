@@ -1,6 +1,8 @@
 import scatterplot_webgl from "./scatterplot_webgl";
 import splatterplot from "./scatterplot_components/splatterplot";
+
 import points from "./scatterplot_components/points";
+import bins from "./scatterplot_components/bins";
 
 export default function(dispatch) {
   // 'global' declarations go here
@@ -370,9 +372,8 @@ export default function(dispatch) {
       // finally, draw the points
       extScatterObj.draw(chartArea);
 
-      // if requested, try to bind listeners to circles (if they exist)
-      // TODO: what should we do if the drawing component doesn't make circles?
-      chartArea.selectAll('circle.point')
+      // if requested, try to bind listeners to created visual objects (if they exist)
+      chartArea.selectAll(extScatterObj.visualEncSelector())
         .on('mouseover', doVoronoi ? null : function(d) {
           var ptPos = this.getBoundingClientRect();
           if (localDispatch.hasOwnProperty('mouseover'))
@@ -735,12 +736,16 @@ export default function(dispatch) {
       case 'points':
         visType = points;
         break;
+      case 'bins':
+        visType = bins;
+        break;
       default:
         visType = points; 
     }
 
     switch (rendering) {
       case 'svg':
+      case 'bins':
       case 'points':
       case 'custom-svg':
         redrawSVG(selection);

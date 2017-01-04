@@ -24,16 +24,18 @@
     "url": "https://github.com/uwgraphics/d3-twodim.git"
   },
   "scripts": {
-    "pretest": "mkdir -p build && node -e 'process.stdout.write(\"var version = \\\"\" + require(\"./package.json\").version + \"\\\"; export * from \\\"../index\\\"; export {version};\");' > build/bundle.js && rollup -f umd -u d3-twodim -n d3_twodim -o build/d3-twodim.js -- build/bundle.js",
+    "pretest": "mkdir -p build && node -e 'process.stdout.write(\"var version = \\\"\" + require(\"./package.json\").version + \"\\\"; export * from \\\"../index\\\"; export {version};\");' > build/bundle.js && rollup -c -- build/bundle.js",
     "test": "faucet `find test -name '*-test.js'`",
     "prepublish": "npm run test && uglifyjs build/d3-twodim.js -c -m -o build/d3-twodim.min.js && rm -f build/d3-twodim.zip && zip -j build/d3-twodim.zip -- LICENSE README.md build/d3-twodim.js build/d3-twodim.min.js"
   },
   "dependencies": {
-    "d3": "~3.5.17"
+    "d3": "~3.5.17",
+    "d3-hexbin": "~0.2"
   },
   "devDependencies": {
     "faucet": "0.0",
     "rollup": "0.20.5",
+    "rollup-plugin-node-resolve": "^2.0.0",
     "tape": "4",
     "uglify-js": "2"
   }

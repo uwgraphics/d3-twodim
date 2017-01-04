@@ -44,4 +44,8 @@ points.prototype.update = function(container, skipTransition) {
     .attr('cy', function(d) { return that.scale.y(that.yValue(d)); });
 }
 
+points.prototype.visualEncSelector = function() {
+  return 'circle.point';
+}
+
 export default points;
