@@ -1,5 +1,6 @@
 // with inspiration from <https://code.lengstorf.com/learn-rollup-js/> and
-// <http://rollupjs.org/guide/#using-config-files>
+// <http://rollupjs.org/guide/#using-config-files>, and
+// <http://stackoverflow.com/questions/38637220/how-to-include-use-of-node-modules-in-rollup-compile>
 //
 // necessary to enable rollup to package up d3-hexbin dependency (see `bins.js`) 
 // into library

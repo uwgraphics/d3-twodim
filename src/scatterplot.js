@@ -294,11 +294,6 @@ export default function(dispatch) {
             .append('rect')
               .attr({x: 0, y: 0, width: width, height: height});
      chartArea.attr('clip-path', 'url(#' + selectionName + ')');
-      
-      // create a group for the circles if it doesn't yet exist  
-      chartArea.selectAll('g.circles')
-        .data([1]).enter().append('g')
-          .attr('class', 'circles');
 
       // put the brush above the points to allow hover events; see 
       //   <http://wrobstory.github.io/2013/11/D3-brush-and-tooltip.html>
@@ -725,6 +720,24 @@ export default function(dispatch) {
     return true;
   }
 
+  // contains the mapping of the rendering type to drawing type (svg, canvas, or webgl)
+  function renderType() {
+    switch (rendering) {
+      case 'svg':
+      case 'bins':
+      case 'points':
+      case 'custom-svg':
+        return 'svg';
+      case 'canvas':
+        return 'canvas';
+      case 'webgl':
+      case 'splatterplot':
+        return 'webgl';
+      default:
+        throw "Unknown rendertype (consider adding to renderType()): " + rendering;
+    }
+  }
+
   function render(selection) {
     if (!checkDataOkay()) {
       console.error("Unable to read data, aborting render for scatterplot '%s'.  There may be more information preceding this message", selectionName);
@@ -743,22 +756,18 @@ export default function(dispatch) {
         visType = points; 
     }
 
-    switch (rendering) {
+    switch (renderType()) {
       case 'svg':
-      case 'bins':
-      case 'points':
-      case 'custom-svg':
         redrawSVG(selection);
         break;
       case 'canvas':
         redrawCanvas(selection);
         break;
       case 'webgl': 
-      case 'splatterplot':
         redrawWebGL(selection);
         break;
       default: 
-        throw "Unknown renderType passed to scatterplot: got " + rendering;
+        throw "Unknown renderType passed to scatterplot: got " + renderType();
     }
 
     // reset dirty flags
@@ -780,7 +789,7 @@ export default function(dispatch) {
     render(selection);
     
     dispatch.on('highlight.' + name, function(selector) {
-      switch (rendering) {
+      switch (renderType()) {
         case 'svg': 
           var allPoints = selection.selectAll('circle');
           if (typeof selector === "function") {

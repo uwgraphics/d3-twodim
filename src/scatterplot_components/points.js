@@ -9,6 +9,11 @@ points.prototype.draw = function(container, skipTransition) {
   var that = this;
   skipTransition = !!skipTransition;
 
+  // create a group for the circles if it doesn't yet exist  
+  container.selectAll('g.circles')
+    .data([1]).enter().append('g')
+      .attr('class', 'circles');
+
   var points = container.select('g.circles').selectAll('circle.point')
     .data(this.data, function(d) { return d.orig_index; });
     

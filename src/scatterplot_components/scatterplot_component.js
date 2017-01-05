@@ -9,14 +9,14 @@ scatterplot_component.prototype.draw = function() {
 }
 
 scatterplot_component.prototype.update = function() {
-  console.warn("given that nothing other than the scales/bounds changed, update the data. If you see this message, a component has not implemented the required draw() method.");
+  console.warn("given that nothing other than the scales/bounds/highlight changed, re-render the data. If you see this message, a component has not implemented the required update() method.");
 }
 
 scatterplot_component.prototype.visualEncSelector = function() {
   console.warn("this returns the css selector for the visual object that has been created.  If you see this message, a component has not implemented the requred visualEncSelector() method.");
 }
 
-scatterplot_component.prototype.setcolorScale = function(newScale) {
+scatterplot_component.prototype.setColorScale = function(newScale) {
   this.colorScale = newScale;
   return this;
 }
