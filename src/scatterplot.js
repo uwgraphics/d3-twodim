@@ -360,7 +360,8 @@ export default function(dispatch) {
           foundGroups: foundGroups, 
           colorScale: colorScale,
           ptSize: ptSize,
-          duration: duration
+          duration: duration,
+          hiddenClass: hiddenClass
         });  
       }
       
@@ -428,13 +429,8 @@ export default function(dispatch) {
         
       function brushmove(p) {
         var e = brush.extent();
-        g.selectAll("circle").classed(hiddenClass, function(d, i) {
-          if (e[0][0] > xValue(d) || xValue(d) > e[1][0] || e[0][1] > yValue(d) || yValue(d) > e[1][1])
-            return true;
-            
-          return false; 
-        });
         
+        // TODO: I forgot why these lines are necessary... (does it have to do with brushes?)
         g.selectAll('circle').classed('extent', false);
         g.selectAll('.voronoi path').classed('extent', false);
         
@@ -791,35 +787,22 @@ export default function(dispatch) {
     dispatch.on('highlight.' + name, function(selector) {
       switch (renderType()) {
         case 'svg': 
-          var allPoints = selection.selectAll('circle');
+          extScatterObj.highlight(selection, selector);
+          
           if (typeof selector === "function") {
-            allPoints.classed(hiddenClass, true);
-            allPoints.filter(selector).classed(hiddenClass, false);
-            
             // generate relevant voronoi
             if (doVoronoi) {
               selection.call(
                 generateVoronoi, 
                 hiddenSupress ? scatterData.filter(selector) : scatterData);
             }
-            
-            // reorder points to bring highlighted points to the front
-            allPoints.sort(function(a, b) {
-              if (selector(a)) {
-                if (selector(b))
-                  return 0;
-                else
-                  return 1;
-              } else {
-                if (selector(b))
-                  return -1;
-                else
-                  return 0;
-              }
-            });
-          } else if (!selector) {
-            allPoints.classed(hiddenClass, false);
-            allPoints.sort(function(a,b) { return d3.ascending(a.orig_index, b.orig_index); });
+          } else if (!selector) { // no points are requested to be highlighted
+            // clear the brush, if one exists
+            if (doBrush) {
+              // d3 v4 way:
+              // selection.select("g.chartArea").call(brush.move, null);
+              selection.select("g.chartArea").call(brush.clear());
+            }
             
             if (doVoronoi) {
               if (doLimitMouse)

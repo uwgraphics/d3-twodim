@@ -40,6 +40,33 @@ points.prototype.draw = function(container, skipTransition) {
     .remove();
 };
 
+points.prototype.highlight = function(container, selector) {
+  var allPoints = container.selectAll(this.visualEncSelector());
+  
+  if (typeof selector === "function") {
+    allPoints.classed(this.hiddenClass, true);
+    allPoints.filter(selector).classed(this.hiddenClass, false);
+
+    // reorder points to bring highlighted points to the front
+    allPoints.sort(function(a, b) {
+      if (selector(a)) {
+        if (selector(b))
+          return 0;
+        else
+          return 1;
+      } else {
+        if (selector(b))
+          return -1;
+        else
+          return 0;
+      }
+    });
+  } else if (!selector) {
+    allPoints.classed(this.hiddenClass, false);
+    allPoints.sort(function(a,b) { return d3.ascending(a.orig_index, b.orig_index); });
+  }
+}
+
 // called whenever bounds change (no data changes)
 points.prototype.update = function(container, skipTransition) {
   var that = this;
