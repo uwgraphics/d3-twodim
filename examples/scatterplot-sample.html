@@ -38,10 +38,10 @@
 </head>
 <body>
     <svg id="d3canvas" version="1.1" baseProfile="full" xmlns="http://www.w3.org/2000/svg"></svg>
-    <div id="dataPoints"></div>
+    <svg id="d3canvas2" version="1.1" baseProfile="full" xmlns="http://www.w3.org/2000/svg" style="margin-top: 100px;"></svg>
     <br />
     <a href="#" id="removeBrush">Add/Remove Brush</a> | <a href="#" id="switchAxes">Switch axes</a><br />
-    <svg id="d3canvas2" version="1.1" baseProfile="full" xmlns="http://www.w3.org/2000/svg" style="margin-top: 100px;"></svg>
+    <div id="dataPoints"></div>
     <script type="text/javascript" src="//d3js.org/d3.v3.js"></script>
     <script type="text/javascript" src="../build/d3-twodim.js"></script>
     <script type="text/javascript">
@@ -49,23 +49,30 @@
     var width = 290; 
     var height = 250;
     
-    var dispatch = d3.dispatch("redraw");
-    var objectlist = d3_twodim.objectlist(dispatch);
-    var scatterplot = d3_twodim.scatterplot(dispatch)
+    var twoDFactory = new d3_twodim.twoDimFactory();
+    var objectlist = twoDFactory.createComponent({type: 'objectlist'})
+        .pointToString(function(d) {
+            return d[0] + ", " + d[1] + " (" + d[2] + ")";
+        });
+    var scatterplot = twoDFactory.createComponent({type: 'scatterplot', render: 'points'})
         .width(width)
         .height(height)
-        .doBrush(true)
-        .xLabel("xAxis")
-        .yLabel("yAxis")
-        .groupColumn(function(d) { return d[2]; });
+        .fields([0,1])
+        .doBrush(true);
+
+    var bins = twoDFactory.createComponent({type: 'scatterplot', render: 'bins'})
+        .width(width)
+        .height(height)
+        .fields([0,1])
+        .circleSize(7);
+        
         
     var vis = d3.select('#d3canvas')    
         .attr('width', 800)
         .attr('height', 300);
         
     d3.csv("venn2-small.csv", function(d) { return [+d[0], +d[1], d['G']]; }, function(error, rows) {        
-        scatterplot.data(rows);
-        objectlist.data(rows);
+        twoDFactory.setData(rows).setGroupColumn(function(d) { return d[2]; });
         
         var plots = [1, 2];
         var plot = vis.selectAll('g.plots')
@@ -73,7 +80,7 @@
             .append('g')
                 .attr('class', 'plots')
                 .attr('transform', function(d, i) { return "translate(" + (50 + i * 430) + ", 10)"; })
-                .call(scatterplot);
+                .call(scatterplot, '.plots');
                 
         var singlePlot = d3.select("#d3canvas2")
             .attr('width', 800)
@@ -81,7 +88,7 @@
           .append('g')
             .attr('class', 'singleplot')
             .attr('transform', "translate(50, 10)")
-            .call(scatterplot);
+            .call(bins, '.singleplot');
 
         var list = d3.select("#dataPoints").call(objectlist);
                 

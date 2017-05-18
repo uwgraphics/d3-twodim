@@ -15,10 +15,7 @@ bins.prototype.draw = function(container, skipTransition) {
   var hexbin = d3_hexbin.hexbin()
       .x(function(d) { return that.scale.x(that.xValue(d)); })
       .y(function(d) { return that.scale.y(that.yValue(d)); })
-      .extent([
-        [d3.min(this.scale.x.range()), d3.min(this.scale.y.range())],
-        [d3.max(this.scale.x.range()), d3.max(this.scale.y.range())]
-      ])
+      .extent([this.scale.x.range(), this.scale.x.range()])
       .radius(this.ptSize);
   
   var hexbins = hexbin(this.data);
@@ -55,7 +52,12 @@ bins.prototype.draw = function(container, skipTransition) {
 }
 
 bins.prototype.update = function(container, skipTransition) {
-  container.selectAll('path.hex')
+  this.draw(container, skipTransition);
+}
+
+bins.prototype.highlight = function(container, selector) {
+  console.warn("no highlight method implemented for bins");
+  return;
 }
 
 bins.prototype.visualEncSelector = function() {
