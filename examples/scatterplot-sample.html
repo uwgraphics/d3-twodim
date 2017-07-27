@@ -65,6 +65,9 @@
         .height(height)
         .fields([0,1])
         .circleSize(7);
+
+    // try intantiating a custom component
+    // var 
         
         
     var vis = d3.select('#d3canvas')    
@@ -97,14 +100,11 @@
     
     document.getElementById("removeBrush").addEventListener("click", function() {
        scatterplot.doBrush(!scatterplot.doBrush());
-       vis.selectAll("g.plots")
-        .call(scatterplot); 
+       vis.selectAll("g.plots").call(scatterplot); 
     });
     
     document.getElementById("switchAxes").addEventListener("click", function() {
-        var tmp = scatterplot.x(); 
-        scatterplot.x(scatterplot.y());
-        scatterplot.y(tmp);
+        scatterplot.fields(scatterplot.fields().reverse());
         vis.selectAll('g.plots').call(scatterplot); 
     });
         
