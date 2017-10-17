@@ -24,8 +24,8 @@
     "url": "https://github.com/uwgraphics/d3-twodim.git"
   },
   "scripts": {
-    "pretest": "mkdir -p build && node -e 'process.stdout.write(\"var version = \\\"\" + require(\"./package.json\").version + \"\\\"; export * from \\\"../index\\\"; export {version};\");' > build/bundle.js && rollup -c -- build/bundle.js",
-    "test": "faucet `find test -name '*-test.js'`",
+    "pretest": "rm -rf build && mkdir build && rollup -c -- index.js",
+    "test": "tape 'test/**/*-test.js'",
     "prepublish": "npm run test && uglifyjs build/d3-twodim.js -c -m -o build/d3-twodim.min.js && rm -f build/d3-twodim.zip && zip -j build/d3-twodim.zip -- LICENSE README.md build/d3-twodim.js build/d3-twodim.min.js"
   },
   "dependencies": {

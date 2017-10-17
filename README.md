@@ -12,9 +12,11 @@ This project is under active development.  Please feel free to [file an issue](h
 
 Download the [latest release](https://github.com/uwgraphics/d3-twodim/releases/latest), and include d3-twodim as a script source after including d3.v3.js. If you use NPM, `npm install d3-twodim`. Otherwise, you can modify and rebuild the library by calling `npm install` from the project root.  
 
+We recommend using a bash shell to install.  On Windows, download [git for windows](https://git-for-windows.github.io/), and make sure both zip and bzip2.dll are available in your path ([[1]](https://ranxing.wordpress.com/2016/12/13/add-zip-into-git-bash-on-windows/)).
+
 ## Example Instantiation
 
-You can view an example instantiation within the repository by navigating to [simpleExample.html](examples/simpleExample.html) after building the library.
+You can view an example instantiation within the repository by navigating to [simpleExample.html](examples/simpleExample.html) after building the library.  
 
 d3-twodim uses the factory design pattern to keep track of all linked components.  In your code, first create the factory by calling `new d3_twodim.twoDimFactory()`, then create objects using the factory's `createComponent()` method.  To make your first scatterplot, you can simply do the following:
 
@@ -78,6 +80,20 @@ var scatterplot = twoDFactory.createComponent({type: 'scatterplot'})
 
 There are also legend, objectlist, and dropdown components to interact with the scatterplot.  Example instantiation of these components can be seen in the [simple example](examples/simpleExample.html).
 
+### Scatterplot Components
+
+Scatterplot-like designs can also be constructed by extending the `scatterplot_component` prototype.  Given a set of data, such a component only needs to implement a `draw()`, `update()`, and optionally a `highlight()` method.  See [bins.js](src/scatterplot_components/bins.js) for an example implementation.
+
+```javscript
+var bins = twoDFactory.createComponent({type: 'scatterplot', render: 'bins'})
+  .width(width)
+  .height(height)
+  .fields([0,1])
+  .circleSize(7);
+```
+
+For convenience, several **WebGL shims are available for use** in [webgl_utils.js](src/scatterplot_components/webgl_utils.js).  You can see how these shims are used in the implemented Splatterplot component, [splatterplot.js](src/scatterplot_components/splatterplot.js).
+
 ## API Reference
 
 ### The Factory
@@ -106,7 +122,7 @@ Sets the data for all components instantiated by this factory. Expects data in a
 
 Sets the categorical column name that will be used to group points.  Shorthand for calling `setGroupColumn`.  The given string *groupField* is converted to a function and is shared with any instantiated scatterplot and legend components. If *groupField* is continuous, consider passing *numBins* to discretize the field into that number of equally-sized bins.
  
- <a name="factory_highlight" href="#highlight">#</a> *twoDimFactory*.**highlight**(*highlightFunction*) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/twoDimFactory.js#L127)
+ <a name="factory_highlight" href="#highlight">#</a> *twoDimFactory*.**highlight**(*highlightFunction*) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/twoDimFactory.js#L129)
 
 Programmatically kicks off a `highlight` dispatch to all instantiated components from this factory.  With the given *highlightFunction*, causes the matched objects to have their 'highlighted' behavior enabled (much like a given funtion to [filter()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter)) and trigger a redraw on all linked d3-twodim components.
 
@@ -129,7 +145,7 @@ var factory = new d3_twodim.twoDimFactory();
 var scatter = factory.createComponent({type: "scatterplot", render: "webgl"});
 ```
 
-<a name="scatterplot_scatterplot" href="#scatterplot_scatterplot">#</a> *scatterplot*(*selection*, *name*)  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L616)
+<a name="scatterplot_scatterplot" href="#scatterplot_scatterplot">#</a> *scatterplot*(*selection*, *name*)  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L783)
 
 Kicks off a render of the scatterplot object on the given selection.  Following D3.js convention, this should be executed on a selection, such as:
 
@@ -165,7 +181,7 @@ Currently, a SVG clip mask hides points that fall outside of the chart area (thi
 To highlight points on the scatterplot, pass a filter selection function to the [*twoDimFactory.highlight()*](#twoDimFactory_highlight) function.  Those points that are not selected by this function will have the CSS class "point-hidden" applied to them (which should be styled by the user). This class name can be changed by the scatterplot method [*hiddenClass()*](#scatterplot_hiddenClass).
 
 
-<a name="scatterplot_data" href="#scatterplot_data">#</a> *scatterplot*.**data**(*newData*[, *key*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L679)
+<a name="scatterplot_data" href="#scatterplot_data">#</a> *scatterplot*.**data**(*newData*[, *key*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L828)
 
 Gets or sets the data bound to points in the scatterplot.  Following D3.js convention, *newData* should be an array of anonymous objects.  Generally set all at once by the [twoDimFactory.setData()](#factory_setData) method.  
 
@@ -173,104 +189,104 @@ The *key* function is passed to [d3.data()](https://github.com/d3/d3-selection#s
 
 If fields have not been defined yet, and the given data items are not arrays, automatically selects the first two fields it finds as being the x- and y-dimensions (regardless if those fields contain continuous data or not).  To change this behavior, call [scatterplot.fields()](#scatterplot_fields).
 
-<a name="scatterplot_renderType" href="#scatterplot_renderType">#</a> *scatterplot*.**renderType**([*renderType*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L713)
+<a name="scatterplot_renderType" href="#scatterplot_renderType">#</a> *scatterplot*.**renderType**([*renderType*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L864)
 
 Gets or sets the type of rendering mechanism, *renderType* should be one of the strings "svg", "canvas", or "webgl". Usually set on instantiation with the factory object, see [twoDimFactory.createComponent](#factory_createComponent).
 
 Subsequent calls of `scatterplot` on a selection will populate the selections with the given rendering type.  Changing the rendering type should change the selection if moving to or from an "svg" render type, see [scatterplot](#scatterplot_scatterplot) for more details.
 
-<a name="scatterplot_width" href="#scatterplot_width">#</a> *scatterplot*.**width**([*width*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L726)
+<a name="scatterplot_width" href="#scatterplot_width">#</a> *scatterplot*.**width**([*width*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L877)
 
 Gets or sets the width of the constructed scatterplot, defaults to `1`.  The caller is responsible for maintaining sensible margins, meaning that this width defines the drawable graph area of the scatterplot, and not necessarily the graph ammenities such as axis labels and ticks.  A generally safe margin is 30 to 50 pixels.
 
-<a name="scatterplot_height" href="#scatterplot_height">#</a> *scatterplot*.**height**([*height*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L737)
+<a name="scatterplot_height" href="#scatterplot_height">#</a> *scatterplot*.**height**([*height*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L888)
 
 Gets or sets the height of the constructed scatterplot, defaults to `1`.  The caller is responsible for maintaining sensible margins, see [scatterplot.width](#scatterplot.width).
 
-<a name="scatterplot_x" href="#scatterplot_x">#</a> *scatterplot*.**x**([*xSelector*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L748)
+<a name="scatterplot_x" href="#scatterplot_x">#</a> *scatterplot*.**x**([*xSelector*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L899)
 
 Gets or sets the accessor to determine the continuous x-dimension value from each item in the dataset.  Default value pulls the first index from a data item if each data item is an array, or the first object field otherwise (see [scatterplot.setData](#scatterplot_setData)).
 
-<a name="scatterplot_y" href="#scatterplot_y">#</a> *scatterplot*.**y**([*ySelector*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L760)
+<a name="scatterplot_y" href="#scatterplot_y">#</a> *scatterplot*.**y**([*ySelector*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L912)
 
 Gets or sets the accessor to determine the continuous y-dimension value from each item in the dataset.  Default value pulls the second index from a data item if each data item is an array, or the second object field otherwise (see [scatterplot.setData](#scatterplot_setData)).
 
-<a name="scatterplot_xLabel" href="#scatterplot_xLabel">#</a> *scatterplot*.**xLabel**([*xName*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L772)
+<a name="scatterplot_xLabel" href="#scatterplot_xLabel">#</a> *scatterplot*.**xLabel**([*xName*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L925)
 
 Gets or sets the x-axis label for the scatterplot.  Can be restyled by selecting `".xaxis .alabel'` after rendering the scatterplot.
 
-<a name="scatterplot_yLabel" href="#scatterplot_yLabel">#</a> *scatterplot*.**yLabel**([*yName*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L783)
+<a name="scatterplot_yLabel" href="#scatterplot_yLabel">#</a> *scatterplot*.**yLabel**([*yName*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L936)
 
 Gets or sets the y-axis label for the scatterplot.  Can be restyled by selecting `".yaxis .alabel'` after rendering the scatterplot.
 
-<a name="scatterplot_labels" href="#scatterplot_labels">#</a> *scatterplot*.**label**([*[xName, yName]*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L795)
+<a name="scatterplot_labels" href="#scatterplot_labels">#</a> *scatterplot*.**labels**([*[xName, yName]*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L947)
 
 Gets or sets the x- and y-axis labels for the scatterplot concurrently. A given argument must be an array of strings of length 2.
 
-<a name="scatterplot_xField" href="#scatterplot_xField">#</a> *scatterplot*.**xField**([*xField*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L806)
+<a name="scatterplot_xField" href="#scatterplot_xField">#</a> *scatterplot*.**xField**([*xField*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L960)
 
 If data items are anonymous objects, gets or sets the field name from which to extract the x-dimension.  This function updates both the `xValue` function, accessible from [scatterplot.x](#scatterplot_x), and the label name for the x-axis, see [scatterplot.xLabel](#scatterplot_xLabel).
 
-<a name="scatterplot_yField" href="#scatterplot_yField">#</a> *scatterplot*.**yField**([*yField*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L821)
+<a name="scatterplot_yField" href="#scatterplot_yField">#</a> *scatterplot*.**yField**([*yField*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L977)
 
 If data items are anonymous objects, gets or sets the field name from which to extract the y-dimension.  This function updates both the `yValue` function, accessible from [scatterplot.y](#scatterplot_y), and the label name for the y-axis, see [scatterplot.yLabel](#scatterplot_yLabel).
 
-<a name="scatterplot_fields" href="#scatterplot_fields">#</a> *scatterplot*.**fields**([*[xField, yField]*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L836)
+<a name="scatterplot_fields" href="#scatterplot_fields">#</a> *scatterplot*.**fields**([*[xField, yField]*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L994)
 
 Gets or sets the [x-](#scatterplot_xField) and [y-field](#scatterplot_yField) values concurrently. A given argument must be an array of strings of legnth 2.
 
-<a name="scatterplot_circleSize" href="#scatterplot_circleSize">#</a> *scatterplot*.**circleSize**([*circleSize*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L854)
+<a name="scatterplot_circleSize" href="#scatterplot_circleSize">#</a> *scatterplot*.**circleSize**([*circleSize*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1014)
 
 Gets or sets the size of the circle that represents objects in the scatterplot.
 
-<a name="scatterplot_changeDuration" href="#scatterplot_changeDuration">#</a> *scatterplot*.**changeDuration**([*duration*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L865) 
+<a name="scatterplot_changeDuration" href="#scatterplot_changeDuration">#</a> *scatterplot*.**changeDuration**([*duration*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1027) 
 
 Gets or sets the duration of animated transitions (in milliseconds) when updating the scatterplot bounds, axes, or point locations.
 
-<a name="scatterplot_pointIdentifier" href="#scatterplot_pointIdentifier">#</a> *scatterplot*.**pointIdentifier**([*newIDFunc*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L876)
+<a name="scatterplot_pointIdentifier" href="#scatterplot_pointIdentifier">#</a> *scatterplot*.**pointIdentifier**([*newIDFunc*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1038)
 
 Gets or sets the key function for the scatterplot data, see [scatterplot.data](#scatterplot_data).
 
-<a name="scatterplot_groupColumn" href="#scatterplot_groupColumn">#</a> *scatterplot*.**groupColumn**([*grpVal*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L887)
+<a name="scatterplot_groupColumn" href="#scatterplot_groupColumn">#</a> *scatterplot*.**groupColumn**([*grpVal*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1049)
 
 Gets or sets the function to extract the group membership for each data element.  By default, this function is `null`, implying that all points are members of one data series.
 
-<a name="scatterplot_colorScale" href="#scatterplot_colorScale">#</a> *scatterplot*.**colorScale**([*colorScale*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L900)
+<a name="scatterplot_colorScale" href="#scatterplot_colorScale">#</a> *scatterplot*.**colorScale**([*colorScale*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1063)
 
 Gets or sets the [d3.scale](https://github.com/d3/d3-3.x-api-reference/blob/master/Ordinal-Scales.md) object that maps the [groupColumn](#scatterplot_groupColumn) to a color.  An ordinal scale (such as [d3.scale.category20b](https://github.com/d3/d3-3.x-api-reference/blob/master/Ordinal-Scales#category20b)) can be used for categorical data, while a [quantize scale](https://github.com/d3/d3-3.x-api-reference/blob/master/Quantitative-Scales.md#quantize-scales) should be used for group values that are continuous.
 
-<a name="scatterplot_bounds" href="#scatterplot_bounds">#</a> *scatterplot*.**bounds**([*newBounds*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L988)
+<a name="scatterplot_bounds" href="#scatterplot_bounds">#</a> *scatterplot*.**bounds**([*newBounds*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1076)
 
 Gets or sets the bounds of the scatterplot.  The bounds are given as a 2D array, of the format `[[xmin, xmax], [ymin, ymax]]`.  The scatterplot needs to then be called on the selection in order to prompt a render to show the updated bounds.
 
-<a name="scatterplot_doBrush" href="#scatterplot_doBrush">#</a> *scatterplot*.**doBrush**([*doBrush*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L914)
+<a name="scatterplot_doBrush" href="#scatterplot_doBrush">#</a> *scatterplot*.**doBrush**([*doBrush*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1094)
 
 Gets or sets whether the scatterplot should implement a rectangular brushing component, similar to d3's brush.  By changing this value, the component is added to or removed from the scatterplot.  Note that activating this component with the [doZoom](#scatterplot_doZoom) option is not supported (the function of the mouse is overloaded).
 
-<a name="scatterplot_doVoronoi" href="#scatterplot_doVoronoi">#</a> *scatterplot*.**doVoronoi**([*doVoronoi*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L925)
+<a name="scatterplot_doVoronoi" href="#scatterplot_doVoronoi">#</a> *scatterplot*.**doVoronoi**([*doVoronoi*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1108)
 
 Gets or sets whether the scatterplot should generate a voronoi overlay for an easier end-user experience of interacting with points. By changing this value, the component is added to or removed from the scatterplot. 
 
 Generated voronoi cells are linked to the points they represent, and bound mouse events to the scatterplot are rebound to these generated voronoi cells. By default, a voronoi overlay is created for all points. To only activate the voronoi overlay for highlighted points (e.g., for performance reasons), pass `true` to [squashMouseEvents()](#scatterplot_squashMouseEvents).
 
-<a name="scatterplot_doZoom" href="#scatterplot_doZoom">#</a> *scatterplot*.**doZoom**([*doZoom*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L937)
+<a name="scatterplot_doZoom" href="#scatterplot_doZoom">#</a> *scatterplot*.**doZoom**([*doZoom*])  [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1120)
 
 Gets or sets whether the scatterplot should support panning and zooming with the chart area.  By changing this value, this functionality is added to or removed from the scatterplot.  Note that activating this component with the [doBrush](#scatterplot_doBrush) option is not supported (the function of the mouse is overloaded).
 
-<a name="scatterplot_squashMouseEvents" href="#scatterplot_squashMouseEvents">#</a> *scatterplot*.**squashMouseEvents**([*doLimitMouse*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1006)
+<a name="scatterplot_squashMouseEvents" href="#scatterplot_squashMouseEvents">#</a> *scatterplot*.**squashMouseEvents**([*doLimitMouse*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1134)
 
 Gets or sets whether mouse events should be fired when no points are highlighted.  With the default value of `false`, all point-based mouse events will be fired.  When set to true, this disables voronoi generation and firing mouse events when no points are highlighted, which can result in great redraw performance savings.
 
 <a name="scatterplot_supressHiddenPoints" href="#scatterplot_supressHiddenPoints">#</a>
- *scatterplot*.**supressHiddenPoints**([*newSupress*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1136)
+ *scatterplot*.**supressHiddenPoints**([*newSupress*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1150)
 
 Gets or sets whether the scatterplot supresses mouse events for hidden (non-highlighted) points. By default, this is `true`, meaning that mouse events will not be fired for those points and associated voronois if those points are hidden by a highlight event. By changing this value to `false`, all points can be targeted by mouse events, regardless of the point state.
 
-<a name="scatterplot_hiddenClass" href="#scatterplot_hiddenClass">#</a> *scatterplot*.**hiddenClass**([*newClass*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1059)
+<a name="scatterplot_hiddenClass" href="#scatterplot_hiddenClass">#</a> *scatterplot*.**hiddenClass**([*newClass*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1162)
 
 Gets or sets the CSS class that is set when points are hidden (applied to those points that are not explicitly highlighted). This can help avoid CSS namespace collisions if the default class `point-hidden` is taken by an external CSS dependency.
 
-<a name="scatterplot_autoUpdateBounds" href="#scatterplot_autoUpdateBounds">#</a> *scatterplot*.**autoUpdateBounds**([*updateBounds*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1126)
+<a name="scatterplot_autoUpdateBounds" href="#scatterplot_autoUpdateBounds">#</a> *scatterplot*.**autoUpdateBounds**([*updateBounds*]) [<*code*>](https://github.com/uwgraphics/d3-twodim/blob/master/src/scatterplot.js#L1176)
 
 Gets or sets the boolean value that determines whether the scatterplot should automatically rescale its bounds whenever the data accessors change (i.e., the x-value, y-value, or group value changes).  The default is true; the scatterplot will rescale when new accessors are chosen and a redraw triggered.  If set to false, the user is responsible for calling the [bounds()](#scatterplot_bounds) function and triggering a redraw to rescale the scatterplot.
 
