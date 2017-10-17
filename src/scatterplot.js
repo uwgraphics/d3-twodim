@@ -1,6 +1,9 @@
 import scatterplot_webgl from "./scatterplot_webgl";
 import splatterplot from "./scatterplot_components/splatterplot";
 
+import points from "./scatterplot_components/points";
+import bins from "./scatterplot_components/bins";
+
 export default function(dispatch) {
   // 'global' declarations go here
   var rendering = 'svg';
@@ -8,6 +11,7 @@ export default function(dispatch) {
   var scatterData = [];
   var scatterDataKey = undefined;
   var localDispatch = d3.dispatch('mouseover', 'mouseout', 'mousedown', 'click');
+  var visType = points;
   
   var width = 1;
   var height = 1;
@@ -290,11 +294,6 @@ export default function(dispatch) {
             .append('rect')
               .attr({x: 0, y: 0, width: width, height: height});
      chartArea.attr('clip-path', 'url(#' + selectionName + ')');
-      
-      // create a group for the circles if it doesn't yet exist  
-      chartArea.selectAll('g.circles')
-        .data([1]).enter().append('g')
-          .attr('class', 'circles');
 
       // put the brush above the points to allow hover events; see 
       //   <http://wrobstory.github.io/2013/11/D3-brush-and-tooltip.html>
@@ -348,107 +347,90 @@ export default function(dispatch) {
         chartArea.call(zoomBehavior);
       }
 
+      // the visType is set in rendering(); defaults to 'points' [scatterplot_components/points.js]
+      // TODO: provide interface for users to provide and pass in their own scatterplot_component
+      //        prototype class
+      if (!extScatterObj) {
+        extScatterObj = new visType({
+          data: scatterData,
+          scale: scale, 
+          xValue: xValue, 
+          yValue: yValue, 
+          grpValue: grpValue, 
+          foundGroups: foundGroups, 
+          colorScale: colorScale,
+          ptSize: ptSize,
+          duration: duration,
+          hiddenClass: hiddenClass
+        });  
+      }
+      
       // finally, draw the points
-      updateGraph();
+      extScatterObj.draw(chartArea);
+
+      // if requested, try to bind listeners to created visual objects (if they exist)
+      chartArea.selectAll(extScatterObj.visualEncSelector())
+        .on('mouseover', doVoronoi ? null : function(d) {
+          var ptPos = this.getBoundingClientRect();
+          if (localDispatch.hasOwnProperty('mouseover'))
+            localDispatch.mouseover(d, ptPos);
+        })
+        .on('mouseout', doVoronoi ? null : function(d) {
+          if (localDispatch.hasOwnProperty('mouseout'))
+            localDispatch.mouseout(d);
+        })
+        .on('mousedown', function(d) {
+          // if a brush is started over a point, hand it off to the brush
+          // HACK from <http://stackoverflow.com/questions/37354411/>
+          if (doBrush) {
+            var e = brush.extent();
+            var m = d3.mouse(g.node());
+            var p = [scale.x.invert(m[0]), scale.y.invert(m[1])];
+            
+            if (brush.empty() || e[0][0] > xValue(d) || xValue(d) > e[1][0] ||
+              e[0][1] > yValue(d) || yValue(d) > e[1][1])
+            {
+              brush.extent([p,p]);
+            } else {
+              d3.select(this).classed('extent', true);
+            }
+          } else {
+            if (localDispatch.hasOwnProperty('mousedown'))
+              localDispatch.mousedown(d);
+          }
+        })
+        .on('click', function(d) {
+          if (localDispatch.hasOwnProperty('click') && !d3.event.defaultPrevented)
+            localDispatch.click(d);
+        });
+
+      // update axis if bounds changed
+      g.selectAll('.xaxis')
+        .transition().duration(duration)
+        .call(d3.svg.axis().orient("bottom").scale(scale.x));
+        
+      g.selectAll('.yaxis')
+        .transition().duration(duration)
+        .call(d3.svg.axis().orient("left").scale(scale.y));
+
+      if (doVoronoi) {
+        voronoi = d3.geom.voronoi()
+          .x(function(d) { return scale.x(xValue(d)); })
+          .y(function(d) { return scale.y(yValue(d)); })
+          .clipExtent([[0, 0], [width, height]]);
+
+        if (!doLimitMouse)
+          chartArea.call(generateVoronoi, scatterData);
+      }
 
       // hack to clear selected points post-hoc after removing brush element 
       // (to get around inifinite-loop problem if called from within the exit() selection)
       if (brushDirty) dispatch.highlight(false);
-
-      function updateGraph(skipTransition) {
-        skipTransition = !!skipTransition;
-
-        console.log("updateGraph() called with %d elements", scatterData.length)
-
-        // bind points to circles
-        var points = chartArea.select('g.circles').selectAll('circle.point')
-          .data(scatterData, ptIdentifier);
-          
-        points.enter().append('circle')
-          .attr("class", "point")
-          .attr('id', function(d) { return "circle-" + d.orig_index; })
-          .attr('r', ptSize)
-          .attr('cx', function(e) { return scale.x(xValue(e)); })
-          .attr('cy', function(e) { return scale.y(yValue(e)); })
-          .style('fill', grpValue ? function(d) { return colorScale(grpValue(d)); } : colorScale('undefined'))
-          .style('opacity', 1)
-          .on('mouseover', doVoronoi ? null : function(d) {
-            var ptPos = this.getBoundingClientRect();
-            if (localDispatch.hasOwnProperty('mouseover'))
-              localDispatch.mouseover(d, ptPos);
-          })
-          .on('mouseout', doVoronoi ? null : function(d) {
-            if (localDispatch.hasOwnProperty('mouseout'))
-              localDispatch.mouseout(d);
-          })
-          .on('mousedown', function(d) {
-            // if a brush is started over a point, hand it off to the brush
-            // HACK from <http://stackoverflow.com/questions/37354411/>
-            if (doBrush) {
-              var e = brush.extent();
-              var m = d3.mouse(g.node());
-              var p = [scale.x.invert(m[0]), scale.y.invert(m[1])];
-              
-              if (brush.empty() || e[0][0] > xValue(d) || xValue(d) > e[1][0] ||
-                e[0][1] > yValue(d) || yValue(d) > e[1][1])
-              {
-                brush.extent([p,p]);
-              } else {
-                d3.select(this).classed('extent', true);
-              }
-            } else {
-              if (localDispatch.hasOwnProperty('mousedown'))
-                localDispatch.mousedown(d);
-            }
-          })
-          .on('click', function(d) {
-            if (localDispatch.hasOwnProperty('click') && !d3.event.defaultPrevented)
-              localDispatch.click(d);
-          });
-          
-        // if transition was requested, add it into the selection
-        var updatePoints = points;
-        if (!skipTransition) updatePoints = points.transition().duration(duration);
-        updatePoints
-          .attr('cx', function(e) { return scale.x(xValue(e)); })
-          .attr('cy', function(e) { return scale.y(yValue(e)); })
-          .style('fill', grpValue ? function(d) { return colorScale(grpValue(d)); } : colorScale('undefined'))
-          .style('opacity', 1);
-          
-        points.exit().transition()
-          .duration(duration)
-          .style('opacity', 1e-6)
-          .remove();
-
-        // update axis if bounds changed
-        var xaxisGrp = g.selectAll('.xaxis');
-        if (!skipTransition) xaxisGrp = xaxisGrp.transition().duration(duration); 
-        xaxisGrp.call(d3.svg.axis().orient("bottom").scale(scale.x));
-          
-        var yaxisGrp = g.selectAll('.yaxis');
-        if (!skipTransition) yaxisGrp = yaxisGrp.transition().duration(duration); 
-        yaxisGrp.call(d3.svg.axis().orient("left").scale(scale.y));
-
-        if (doVoronoi) {
-          voronoi = d3.geom.voronoi()
-            .x(function(d) { return scale.x(xValue(d)); })
-            .y(function(d) { return scale.y(yValue(d)); })
-            .clipExtent([[0, 0], [width, height]]);
-
-          if (!doLimitMouse)
-            chartArea.call(generateVoronoi, scatterData);
-        }
-      }
         
       function brushmove(p) {
         var e = brush.extent();
-        g.selectAll("circle").classed(hiddenClass, function(d, i) {
-          if (e[0][0] > xValue(d) || xValue(d) > e[1][0] || e[0][1] > yValue(d) || yValue(d) > e[1][1])
-            return true;
-            
-          return false; 
-        });
         
+        // TODO: I forgot why these lines are necessary... (does it have to do with brushes?)
         g.selectAll('circle').classed('extent', false);
         g.selectAll('.voronoi path').classed('extent', false);
         
@@ -479,9 +461,7 @@ export default function(dispatch) {
 
       function zoom() {
         // updateGraph(true);
-        chartArea.selectAll('circle.point')
-          .attr('cx', function(e) { return scale.x(xValue(e)); })
-          .attr('cy', function(e) { return scale.y(yValue(e)); });
+        extScatterObj.update(chartArea, true);
 
         g.selectAll('.xaxis')
           .call(d3.svg.axis().orient("bottom").scale(scale.x));
@@ -736,13 +716,43 @@ export default function(dispatch) {
     return true;
   }
 
+  // contains the mapping of the rendering type to drawing type (svg, canvas, or webgl)
+  function renderType() {
+    switch (rendering) {
+      case 'svg':
+      case 'bins':
+      case 'points':
+      case 'custom-svg':
+        return 'svg';
+      case 'canvas':
+        return 'canvas';
+      case 'webgl':
+      case 'splatterplot':
+        return 'webgl';
+      default:
+        throw "Unknown rendertype (consider adding to renderType()): " + rendering;
+    }
+  }
+
   function render(selection) {
     if (!checkDataOkay()) {
       console.error("Unable to read data, aborting render for scatterplot '%s'.  There may be more information preceding this message", selectionName);
       return;
     }
 
+    // were we requested to instantiate a particular vis type?
     switch (rendering) {
+      case 'points':
+        visType = points;
+        break;
+      case 'bins':
+        visType = bins;
+        break;
+      default:
+        visType = points; 
+    }
+
+    switch (renderType()) {
       case 'svg':
         redrawSVG(selection);
         break;
@@ -750,11 +760,10 @@ export default function(dispatch) {
         redrawCanvas(selection);
         break;
       case 'webgl': 
-      case 'splatterplot':
         redrawWebGL(selection);
         break;
       default: 
-        throw "Unknown renderType passed to scatterplot: got " + rendering;
+        throw "Unknown renderType passed to scatterplot: got " + renderType();
     }
 
     // reset dirty flags
@@ -776,37 +785,24 @@ export default function(dispatch) {
     render(selection);
     
     dispatch.on('highlight.' + name, function(selector) {
-      switch (rendering) {
+      switch (renderType()) {
         case 'svg': 
-          var allPoints = selection.selectAll('circle');
+          extScatterObj.highlight(selection, selector);
+          
           if (typeof selector === "function") {
-            allPoints.classed(hiddenClass, true);
-            allPoints.filter(selector).classed(hiddenClass, false);
-            
             // generate relevant voronoi
             if (doVoronoi) {
               selection.call(
                 generateVoronoi, 
                 hiddenSupress ? scatterData.filter(selector) : scatterData);
             }
-            
-            // reorder points to bring highlighted points to the front
-            allPoints.sort(function(a, b) {
-              if (selector(a)) {
-                if (selector(b))
-                  return 0;
-                else
-                  return 1;
-              } else {
-                if (selector(b))
-                  return -1;
-                else
-                  return 0;
-              }
-            });
-          } else if (!selector) {
-            allPoints.classed(hiddenClass, false);
-            allPoints.sort(function(a,b) { return d3.ascending(a.orig_index, b.orig_index); });
+          } else if (!selector) { // no points are requested to be highlighted
+            // clear the brush, if one exists
+            if (doBrush) {
+              // d3 v4 way:
+              // selection.select("g.chartArea").call(brush.move, null);
+              selection.select("g.chartArea").call(brush.clear());
+            }
             
             if (doVoronoi) {
               if (doLimitMouse)
